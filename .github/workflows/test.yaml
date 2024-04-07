@@ -11,16 +11,32 @@ jobs:
       uses: actions/checkout@v3
 
     # install oss fpga tools
-    - name: install oss-cad-suite
-      uses: YosysHQ/setup-oss-cad-suite@v2
+    #- name: install oss-cad-suite
+    #  uses: YosysHQ/setup-oss-cad-suite@v2
+    #  with:
+    #      python-override: true
+    #      github-token: ${{ secrets.GITHUB_TOKEN }}
+    #- run: | 
+    #    yosys --version
+    #    iverilog -V
+    #    cocotb-config --libpython
+    #    cocotb-config --python-bin
+
+    # f2fc6d1af4d6abf8a4dcd37fd74a9a15c2273b9f~20240303 (2024-04-08)
+    - uses: awalsh128/cache-apt-pkgs-action@f2fc6d1af4d6abf8a4dcd37fd74a9a15c2273b9f
       with:
-          python-override: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-    - run: | 
-        yosys --version
-        iverilog -V
-        cocotb-config --libpython
-        cocotb-config --python-bin
+        packages: iverilog
+        version: 1.0
+        execute_install_scripts: true
+    
+    # This is to supersede the cocotb supplied by oss-cad-suite (which is now bleeding edge)
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip' # caching pip dependencies
+        cache-dependency-path: '.github/workflows/requirements_*.txt'
+    - run: |
+        pip install -r .github/workflows/requirements_test.txt
 
     - name: test
       run: |
