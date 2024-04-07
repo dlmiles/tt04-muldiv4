@@ -1,0 +1,6 @@
+#
+# Added these unusual suffixes to give git a clue what to do.
+#
+*.circ	text
+*.hex	text
+
