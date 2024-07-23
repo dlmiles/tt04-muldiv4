@@ -1,0 +1,1208 @@
+
+>>> machine.reset()
+ttboard.config.config_file: Loaded config config.ini
+ttboard.demoboard: Demoboard starting up in mode ASIC_RP_CONTROL
+ttboard.pins.pins: Setting mode to ASIC_RP_CONTROL
+ttboard.boot.rom: Got ROM data shuttle=tt04
+repo=TinyTapeout/tinytapeout-04
+
+ttboard.project_mux: Disable (selecting project 0)
+ttboard.project_mux: Chip reported by ROM is tt04 commit FAKEDATA
+ttboard.project_mux: Loading shuttle file /shuttles/tt04.json
+ttboard.project_mux: Already have a "wokwi_traffic_light" here...
+ttboard.project_mux: Enable design tt_um_factory_test
+
+
+
+The 'tt' object is available.
+
+Projects may be enabled with tt.shuttle.PROJECT_NAME.enable(), e.g.
+tt.shuttle.tt_um_urish_simon.enable()
+
+Pins may be accessed by name, e.g. tt.out3() to read or tt.in5(1) to write.
+Config of pins may be done using mode attribute, e.g. 
+tt.uio3.mode = Pins.OUT
+
+
+
+<DemoBoard in ASIC_RP_CONTROL, auto-clocking @ 10 tt04 project 'tt_um_factory_test (1) @ https://github.com/TinyTapeout/tt04-factory-test'>
+
+MicroPython v1.22.2 on 2024-02-22; Raspberry Pi Pico with RP2040
+Type "help()" for more information.
+>>> stopClocking()
+ttboard.pins.standard: Disabling pwm on rp_projclk
+>>> 
+>>> 
+paste mode; Ctrl-C to cancel, Ctrl-D to finish
+=== #
+# Edition: tt04
+# Address: 325 (tt project selection address)
+# Project: tt04-muldiv4
+# Title:   MULDIV unit (4-bit signed/unsigned)
+#
+# CLOCK: 0  (no clock)
+#
+#
+# How to use:
+#   Connect a TT04 board into USB.
+#   With Chrome brower navigate to https://commander.tinytapeout.com/
+#   Connect to board with USB Serial
+#   CONFIG:
+#     Clock set to 0 Hz (disabled) [click SET]
+#     Project 325 [click SELECT]
+#   REPL:
+#     Paste this script into
+#
+#   It maybe necessary to split the file into 3 parts as I found the serial
+#   interface would block (seemingly deadlock on the MicroPython device)
+#   if there was too much data.
+#
+#   I have marked a suitable split location with ##### SPLIT MARKER #####
+#   
+#
+# Copyright (c) 2024 Darryl L. Miles
+# SPDX-License-Identifier: Apache-2.0
+#
+from machine import Pin
+
+# Alternatively you can use a terminal/minicom/PuTTY on ttyAC)/COMx
+#  issue these two command on power up.  Then Ctrl-E and upload/paste 
+#  in this script, using Ctrl-D to complete.
+# machine.reset()
+stopClocking()
+
+# HOTFIX some versions of firmware might need this
+# FIXUP missing pin definitions (they were missing in my f/w)
+# FORCE them as ttboard/demoboard.py:396 of __getattr__ raise AttributeError
+#if tt.pin_out1 is None:
+tt.pin_out1 = machine.Pin(6, mode=Pin.IN, pull=Pin.PULL_DOWN)
+
+#if tt.pin_out2 is None:
+tt.pin_out2 = machine.Pin(7, mode=Pin.IN, pull=Pin.PULL_DOWN)
+
+#if tt.pin_out3 is None:
+tt.pin_out3 = machine.Pin(8, mode=Pin.IN, pull=Pin.PULL_DOWN)
+
+
+# Setup some easy access variables
+EDIVOVER = tt.pin_uio4 # Pin(GPIO_UIO[4], Pin.IN)
+EDIVZERO = tt.pin_uio5 # Pin(GPIO_UIO[5], Pin.IN)
+OPSIGNED = tt.pin_uio6 # Pin(GPIO_UIO[6], Pin.OUT)
+MULDIV   = tt.pin_uio7 # Pin(GPIO_UIO[7], Pin.OUT)
+A0       = tt.pin_in0  # Pin(GPIO_UI_IN[0], Pin.OUT)
+A1       = tt.pin_in1  # Pin(GPIO_UI_IN[1], Pin.OUT)
+A2       = tt.pin_in2  # Pin(GPIO_UI_IN[2], Pin.OUT)
+A3       = tt.pin_in3  # Pin(GPIO_UI_IN[3], Pin.OUT)
+B0       = tt.pin_in4  # Pin(GPIO_UI_IN[4], Pin.OUT)
+B1       = tt.pin_in5  # Pin(GPIO_UI_IN[5], Pin.OUT)
+B2       = tt.pin_in6  # Pin(GPIO_UI_IN[6], Pin.OUT)
+B3       = tt.pin_in7  # Pin(GPIO_UI_IN[7], Pin.OUT)
+# No GPIO_UO_OUT global exists
+RES0     = tt.pin_out0 # Pin(GPIO_UO_OUT[0], Pin.IN)
+RES1     = tt.pin_out1 # Pin(GPIO_UO_OUT[1], Pin.IN)
+RES2     = tt.pin_out2 # Pin(GPIO_UO_OUT[2], Pin.IN)
+RES3     = tt.pin_out3 # Pin(GPIO_UO_OUT[3], Pin.IN)
+RES4     = tt.pin_out4 # Pin(GPIO_UO_OUT[4], Pin.IN)
+RES5     = tt.pin_out5 # Pin(GPIO_UO_OUT[5], Pin.IN)
+RES6     = tt.pin_out6 # Pin(GPIO_UO_OUT[6], Pin.IN)
+RES7     = tt.pin_out7 # Pin(GPIO_UO_OUT[7], Pin.IN)
+
+# Setup buses
+A = [A3, A2, A1, A0]
+B = [B3, B2, B1, B0]
+P = [RES7, RES6, RES5, RES4, RES3, RES2, RES1, RES0]
+Q = [RES3, RES2, RES1, RES0]
+R = [RES7, RES6, RES5, RES4]
+
+WIDTH = 4
+PWIDTH = 8
+MASK = (1 << WIDTH) - 1
+
+verbose = 1
+
+
+def debug(level, *kwargs) -> None:
+    if verbose >= level:
+        print(*kwargs)
+
+
+# create base2 number, MSB first
+def binval(value: int, width: int = 1) -> str:
+    assert width >= 0
+    s = ''
+    for bitid in range(width):
+        bitval = 1 << bitid
+        if (value & bitval) != 0:
+            s = f"1{s}"
+        else:
+            s = f"0{s}"
+    return s
+
+
+def u2s(value: int, width: int) -> int: # unsigned to signed at width
+    assert width >= 0
+    unsigned_max_plus_one = 1 << width
+    unsigned_max = unsigned_max_plus_one - 1
+    signed_max_plus_one = (1 << (width - 1))
+    signed_max = signed_max_plus_one - 1
+    if value < 0 or value > unsigned_max:
+        value &= unsigned_max
+    if value > signed_max:
+        value -= unsigned_max_plus_one
+    return value
+
+
+def s2u(value: int, width: int) -> int: # signed to unsigned at width
+    assert width >= 0
+    unsigned_max_plus_one = 1 << width
+    unsigned_max = unsigned_max_plus_one - 1
+    return value & unsigned_max
+
+
+def veribinval(value: int, width: int = 1) -> str:
+    assert width >= 1
+    s = binval(value, width)
+    return f"{width}\'b{s}"
+
+
+def veridecval(value: int, width: int = 1) -> str:
+    assert width >= 1
+    value = s2u(value, width)
+    return f"{width}\'d{value}"
+
+
+# None = -8 to +15.
+def fix_range(value: int, signed: int = None) -> int:
+    sv = u2s(value, WIDTH)
+    uv = s2u(value, WIDTH)
+    if signed == True:
+        return sv
+    elif signed == False:
+        return uv
+    if value < 0:
+        return sv
+    return uv
+
+
+def rdbus(pins: Sequence[Any]) -> int: # read a bus of Pin
+    v = 0
+    w = len(pins)
+    for i, pin in enumerate(pins): # MSB first
+        bitid = w - i - 1
+        v <<= 1
+        vv = '0'
+        # MuxedSelection on tt.out3 makes this not have consistent interface
+        if pin() != 0: # pin.value()
+            v |= 1
+            vv = '1'
+        debug(2, f"rd({bitid}) = {vv} {(v & 1) != 0}") # verbose
+    return v
+
+
+def wrbus(pins: Sequence[Any], value: int) -> None: # write a bus of Pin
+    nvalue = fix_range(value)
+    if nvalue != value:
+        print(f"WARNING: Input out of range {value} 0..15 or -7...8 using {nvalue}")
+    w = len(pins)
+    for i, pin in enumerate(pins): # pins is MSB first
+        bitid = w - i - 1
+        bitval = 1 << bitid
+        bitbf = True if (nvalue & bitval) != 0 else False
+        pin(bitbf) # invoke as function to set value
+        debug(2, f"wr({bitid}) = {bitbf} {pin}") # verbose
+
+
+def prbus(pins: Sequence[Any], width: int = None) -> None:
+    width = len(pins) if width is None else width
+    v = rdbus(pins)
+    sv = u2s(v, width)
+    print(f"{v} {sv:5d}   0x{v:x}   {binval(v, width)}b  {veribinval(v, width)}  {veridecval(v, width)}")
+
+
+def div_status(signed: bool = False) -> None:
+    edivover = EDIVOVER.value()
+    edivzero = EDIVZERO.value()
+    d_edivover = ' EDIVOVER' if edivover else ''
+    d_edivzero = ' EDIVZERO' if edivzero else ''
+    qvalue = rdbus(Q)
+    if signed:
+        qvalue = u2s(qvalue, WIDTH)
+    d_qvalue = f"Q=[{qvalue:2d}  0x{qvalue:x}  {binval(qvalue, WIDTH)}  {veribinval(qvalue, WIDTH)}  {veridecval(qvalue, WIDTH)}]"
+    print(d_qvalue)
+    rvalue = rdbus(R)
+    if signed:
+        rvalue = u2s(rvalue, WIDTH)
+    d_rvalue = f"R=[{rvalue:2d}  0x{rvalue:x}  {binval(rvalue, WIDTH)}  {veribinval(rvalue, WIDTH)}  {veridecval(rvalue, WIDTH)}]"
+    print(d_rvalue)
+    str = f"E={d_edivover}{d_edivzero}"
+    print(str)
+
+
+def mul_status(signed: bool = False) -> None:
+    # Error signal outputs ignored for multiple
+    pvalue = rdbus(P)
+    sv = u2s(pvalue, PWIDTH)
+    d_pvalue = f"P=[{pvalue:2d} {sv:5d}   0x{pvalue:x}   {binval(pvalue, PWIDTH)}  {veribinval(pvalue, PWIDTH)}  {veridecval(pvalue, PWIDTH)}]"
+    print(d_pvalue)
+
+
+def status() -> str:
+    v_muldiv = MULDIV.value()
+    v_opsigned = OPSIGNED.value()
+    d_muldiv = 'Divide' if(v_muldiv) != 0 else 'Multiply'
+    d_opsigned = 'Signed' if(v_opsigned) != 0 else 'Unsigned'
+    print(f"MULDIV={v_muldiv} [{d_muldiv}]    OPSIGNED={v_opsigned}  [{d_opsigned}]")
+    v_a = rdbus(A)
+    v_b = rdbus(B)
+    print(f"     A={v_a} [0x{v_a:x}]           B={v_b}  [0x{v_b:x}]")
+    if MULDIV.value(): # True == DIV
+        return div_status(OPSIGNED.value() != 0)
+    else:
+        return mul_status(OPSIGNED.value() != 0)
+
+
+def wait() -> None:
+    # NOP for now but represents non-instant expection for results to be available
+    return
+
+
+
+>>> 
+>>> 
+paste mode; Ctrl-C to cancel, Ctrl-D to finish
+=== ##### SPLIT MARKER #####
+
+def validate(a: Numeric, b: Numeric, signed: bool = False) -> None:
+    if signed:
+        if a < -8 or a > 7:
+            raise Exception(f"A out-of-range ({a} -8..7)")
+        if b < -8 or b > 7:
+            raise Exception(f"B out-of-range ({b} -8..7)")
+    else:
+        if a < 0 or a > 15:
+            raise Exception(f"A out-of-range ({a} 0..15)")
+        if b < 0 or b > 15:
+            raise Exception(f"B out-of-range ({b} 0..15)")
+
+
+def div_op(a: Number, b: Number, signed: bool = False) -> int:	# Generic DIV
+    validate(a, b, signed)
+    MULDIV.on()		# Divide mode
+    OPSIGNED(signed)
+    wrbus(A, a)
+    wrbus(B, b)
+    op = 'S' if signed else 'U'
+    if b == 0:
+        expect = 'EDIVZERO'
+        d_expect = f"{expect}"
+    else:
+        qexpect = int(a / b)
+        rexpect = int(a % b)
+        d_expect = f"Q=[{qexpect} 0x{int(qexpect):x} {veribinval(qexpect, WIDTH)}]"
+        d_expect += f" R=[{rexpect} 0x{int(rexpect):x} {veribinval(rexpect, WIDTH)}]"
+    print(f"DIV{op} A={a} B={b}  expect={d_expect}")
+    wait()
+    div_status()
+    return qr(rdbus(Q), rdbus(R))
+
+
+def divs_op(a: Number, b: Number) -> None: # Signed DIV
+    return div_op(a, b, True)
+
+
+def divu_op(a: Number, b: Number) -> None: # Unsigned DIV
+    return div_op(a, b, False)
+
+
+def mul_op(a: Number, b: Number, signed: bool = False) -> int:	# Generic MUL
+    validate(a, b, signed)
+    MULDIV.off()	# Multiply mode
+    OPSIGNED(signed)
+    wrbus(A, a)
+    wrbus(B, b)
+    op = 'S' if signed else 'U'
+    expect = a * b
+    uexpect = expect & MASK
+    print(f"MUL{op} A={a} B={b}  expect=[{expect} 0x{uexpect:x} {veribinval(expect, WIDTH)}]")
+    wait()
+    mul_status()
+    p = rdbus(P)
+    if signed:
+        p = u2s(p, PWIDTH) # interpret data into Python int type
+    return p
+
+
+def muls_op(a: Number, b: Number) -> None: # Signed MUL
+    return mul_op(a, b, True)
+
+
+def mulu_op(a: Number, b: Number) -> None: # Unsigned MUL
+    return mul_op(a, b, False)
+
+
+def passfail(expect: int, actual: int, expect_edivzero: bool = False, expect_edivover: bool = False) -> bool:
+    actual_edivzero = EDIVZERO.value()
+    actual_edivover = EDIVOVER.value()
+    edivzero_ok = expect_edivzero == actual_edivzero
+    edivover_ok = expect_edivover == actual_edivover
+    result_ok = expect == actual
+    bf = False
+    # When EDIVZERO (or EDIVOVER) disregard result output
+    if ( expect_edivzero or expect_edivover ) and edivzero_ok and edivover_ok:
+        print("PASS")
+        bf = True
+    elif result_ok and edivzero_ok and edivzero_ok:
+        print("PASS")
+        bf = True
+    else:
+        print("FAIL")
+    return bf
+
+
+def test_one(fail_count: int, expect: int, func: Callable[[None],int], expect_edivzero: bool = False, expect_edivover: bool = False) -> int:
+    actual = func()
+    bf = passfail(expect, actual, expect_edivzero, expect_edivover)
+    if not bf:
+        fail_count += 1
+    return fail_count
+
+
+# Merge QR (4bit each) into 8bit value for test_one()
+def qr(q: int, r: int) -> int:
+    res = s2u(q, WIDTH) & MASK
+    res |= (s2u(r, WIDTH) & MASK) << WIDTH
+    return res
+
+
+def test_mulu(fail_count: int) -> int:
+    # MULU
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  0))
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(1,  0))
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(15, 0))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  1))
+    fail_count = test_one(fail_count, 1,     lambda: mulu_op(1,  1))
+    fail_count = test_one(fail_count, 15,    lambda: mulu_op(15, 1))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  2))
+    fail_count = test_one(fail_count, 2,     lambda: mulu_op(1,  2))
+    fail_count = test_one(fail_count, 14,    lambda: mulu_op(7,  2))
+    fail_count = test_one(fail_count, 16,    lambda: mulu_op(8,  2))
+    fail_count = test_one(fail_count, 30,    lambda: mulu_op(15, 2))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  15))
+    fail_count = test_one(fail_count, 15,    lambda: mulu_op(1,  15))
+    fail_count = test_one(fail_count, 105,   lambda: mulu_op(7,  15))
+    fail_count = test_one(fail_count, 120,   lambda: mulu_op(8,  15))
+    fail_count = test_one(fail_count, 225,   lambda: mulu_op(15, 15))
+    return fail_count
+
+
+def test_muls(fail_count: int) -> int:
+    # MULS
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  0))
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(7,  0))
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(-8, 0))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  1))
+    fail_count = test_one(fail_count, 7,     lambda: muls_op(7,  1))
+    fail_count = test_one(fail_count, -8,    lambda: muls_op(-8, 1))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  2))
+    fail_count = test_one(fail_count, 14,    lambda: muls_op(7,  2))
+    fail_count = test_one(fail_count, -16,   lambda: muls_op(-8, 2))
+    fail_count = test_one(fail_count, -14,   lambda: muls_op(-7, 2))
+    fail_count = test_one(fail_count, -2,    lambda: muls_op(-1, 2))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  7))
+    fail_count = test_one(fail_count, 49,    lambda: muls_op(7,  7))
+    fail_count = test_one(fail_count, -56,   lambda: muls_op(-8, 7))
+    fail_count = test_one(fail_count, -49,   lambda: muls_op(-7, 7))
+    fail_count = test_one(fail_count, -7,    lambda: muls_op(-1, 7))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  -1))
+    fail_count = test_one(fail_count, -1,    lambda: muls_op(1,  -1))
+    fail_count = test_one(fail_count, -7,    lambda: muls_op(7,  -1))
+    fail_count = test_one(fail_count, 8,     lambda: muls_op(-8, -1))
+    fail_count = test_one(fail_count, 7,     lambda: muls_op(-7, -1))
+    fail_count = test_one(fail_count, 1,     lambda: muls_op(-1, -1))
+    #
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  -8))
+    fail_count = test_one(fail_count, -8,    lambda: muls_op(1,  -8))
+    fail_count = test_one(fail_count, -56,   lambda: muls_op(7,  -8))
+    fail_count = test_one(fail_count, 64,    lambda: muls_op(-8, -8))
+    fail_count = test_one(fail_count, 56,    lambda: muls_op(-7, -8))
+    fail_count = test_one(fail_count, 8,     lambda: muls_op(-1, -8))
+    return fail_count
+
+
+
+>>> 
+>>> 
+paste mode; Ctrl-C to cancel, Ctrl-D to finish
+=== ##### SPLIT MARKER #####
+
+def test_divu(fail_count: int) -> int:
+    # DIVU
+    fail_count = test_one(fail_count, None,        lambda: divu_op(0,   0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divu_op(1,   0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divu_op(7,   0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divu_op(8,   0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divu_op(14,  0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divu_op(15,  0), expect_edivzero=True)
+    #
+    fail_count = test_one(fail_count, qr(0,  0),   lambda: divu_op(0,   1))
+    fail_count = test_one(fail_count, qr(1,  0),   lambda: divu_op(1,   1))
+    fail_count = test_one(fail_count, qr(7,  0),   lambda: divu_op(7,   1))
+    fail_count = test_one(fail_count, qr(8,  0),   lambda: divu_op(8,   1))
+    fail_count = test_one(fail_count, qr(14, 0),   lambda: divu_op(14,  1))
+    fail_count = test_one(fail_count, qr(15, 0),   lambda: divu_op(15,  1))
+    #
+    fail_count = test_one(fail_count, qr(0, 0),    lambda: divu_op(0,   2))
+    fail_count = test_one(fail_count, qr(0, 1),    lambda: divu_op(1,   2))
+    fail_count = test_one(fail_count, qr(0, 7),    lambda: divu_op(7,   8))
+    fail_count = test_one(fail_count, qr(0, 8),    lambda: divu_op(8,   9))
+    fail_count = test_one(fail_count, qr(0, 9),    lambda: divu_op(9,  10))
+    fail_count = test_one(fail_count, qr(0, 14),   lambda: divu_op(14, 15))
+    #
+    fail_count = test_one(fail_count, qr(14,  0),  lambda: divu_op(14,  1))
+    fail_count = test_one(fail_count, qr(7,   0),  lambda: divu_op(14,  2))
+    fail_count = test_one(fail_count, qr(4,   2),  lambda: divu_op(14,  3))
+    fail_count = test_one(fail_count, qr(15,  0),  lambda: divu_op(15,  1))
+    fail_count = test_one(fail_count, qr(7,   1),  lambda: divu_op(15,  2))
+    fail_count = test_one(fail_count, qr(5,   0),  lambda: divu_op(15,  3))
+    #
+    fail_count = test_one(fail_count, qr(0, 0),    lambda: divu_op(0,  15))
+    fail_count = test_one(fail_count, qr(0, 1),    lambda: divu_op(1,  15))
+    fail_count = test_one(fail_count, qr(0, 7),    lambda: divu_op(7,  15))
+    fail_count = test_one(fail_count, qr(0, 8),    lambda: divu_op(8,  15))
+    fail_count = test_one(fail_count, qr(0, 14),   lambda: divu_op(14, 15))
+    fail_count = test_one(fail_count, qr(1, 0),    lambda: divu_op(15, 15))
+    return fail_count
+
+
+def test_divs(fail_count: int) -> int:
+    # DIVS
+    fail_count = test_one(fail_count, None,        lambda: divs_op(0,  0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divs_op(1,  0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divs_op(7,  0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divs_op(-8, 0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divs_op(-7, 0), expect_edivzero=True)
+    fail_count = test_one(fail_count, None,        lambda: divs_op(-1, 0), expect_edivzero=True)
+    #
+    fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0,  1))
+    fail_count = test_one(fail_count, qr(   1,  0),  lambda: divs_op( 1,  1))
+    fail_count = test_one(fail_count, qr(   7,  0),  lambda: divs_op( 7,  1))
+    fail_count = test_one(fail_count, qr(  -8,  0),  lambda: divs_op(-8,  1))
+    fail_count = test_one(fail_count, qr(  -7,  0),  lambda: divs_op(-7,  1))
+    fail_count = test_one(fail_count, qr(  -1,  0),  lambda: divs_op(-1,  1))
+    #
+    fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0,  2))
+    fail_count = test_one(fail_count, qr(   0,  1),  lambda: divs_op( 1,  2))
+    fail_count = test_one(fail_count, qr(   3,  1),  lambda: divs_op( 7,  2))
+    fail_count = test_one(fail_count, qr(  -4,  0),  lambda: divs_op(-8,  2))
+    fail_count = test_one(fail_count, qr(  -3, -1),  lambda: divs_op(-7,  2))
+    fail_count = test_one(fail_count, qr(   0, -1),  lambda: divs_op(-1,  2))
+    #
+    fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0,  7))
+    fail_count = test_one(fail_count, qr(   0,  1),  lambda: divs_op( 1,  7))
+    fail_count = test_one(fail_count, qr(   1,  0),  lambda: divs_op( 7,  7))
+    fail_count = test_one(fail_count, qr(  -1, -1),  lambda: divs_op(-8,  7))
+    fail_count = test_one(fail_count, qr(  -1,  0),  lambda: divs_op(-7,  7))
+    fail_count = test_one(fail_count, qr(   0, -1),  lambda: divs_op(-1,  7))
+    #
+    fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0, -8))
+    fail_count = test_one(fail_count, qr(   0,  1),  lambda: divs_op( 1, -8))
+    fail_count = test_one(fail_count, qr(   0,  7),  lambda: divs_op( 7, -8))
+    fail_count = test_one(fail_count, qr(   1,  0),  lambda: divs_op(-8, -8))
+    fail_count = test_one(fail_count, qr(   0, -7),  lambda: divs_op(-7, -8))
+    fail_count = test_one(fail_count, qr(   0, -1),  lambda: divs_op(-1, -8))
+    #
+    fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0, -7))
+    fail_count = test_one(fail_count, qr(   0,  1),  lambda: divs_op( 1, -7))
+    fail_count = test_one(fail_count, qr(  -1,  0),  lambda: divs_op( 7, -7))
+    fail_count = test_one(fail_count, qr(   1, -1),  lambda: divs_op(-8, -7))
+    fail_count = test_one(fail_count, qr(   1,  0),  lambda: divs_op(-7, -7))
+    fail_count = test_one(fail_count, qr(   0, -1),  lambda: divs_op(-1, -7))
+    #
+    fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0, -1))
+    fail_count = test_one(fail_count, qr(  -1,  0),  lambda: divs_op( 1, -1))
+    fail_count = test_one(fail_count, qr(  -7,  0),  lambda: divs_op( 7, -1))
+    fail_count = test_one(fail_count, qr(  -8,  0),  lambda: divs_op(-8, -1))
+    fail_count = test_one(fail_count, qr(   7,  0),  lambda: divs_op(-7, -1))
+    fail_count = test_one(fail_count, qr(   1,  0),  lambda: divs_op(-1, -1))
+    return fail_count
+
+
+def test() -> bool:
+    fail_count = 0
+    fail_count = test_mulu(fail_count)
+    fail_count = test_muls(fail_count)
+    fail_count = test_divu(fail_count)
+    fail_count = test_divs(fail_count)
+    #
+    if fail_count == 0:
+        print("SUCCESS: ALL TESTS PASS")
+        return True
+    else:
+        print(f"FAILURE: {fail_count} test(s) FAIL")
+    return False
+
+
+def environment_check() -> bool:
+    ### FIXME can we perform an environment check, to prevent running against the wrong TT edition
+    ## Unclear if I and query the firmwares power-on ROM check or config.ini data.
+    if True:
+        print("WARN: This project is for TT04 but this environment has NOT")
+        print("WARN: been validated automatically Please manually check and")
+        print("WARN: confirm TT04 is connected")
+        print(" * Set Clock to 0")
+        print(" * Select Project 325")
+        print(" * Open REPL tab and load this script")
+    return True
+
+
+def project325_pin_setup():
+    # This is delayed until after project selection because that assumes
+    #  PMODs have been disconnected.
+    tt.pin_uio4.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # EDIVOVER
+    tt.pin_uio5.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # EDIVZERO
+    tt.pin_uio6.init(mode=Pin.OUT, pull=Pin.PULL_DOWN) # OPSIGNED
+    tt.pin_uio7.init(mode=Pin.OUT, pull=Pin.PULL_DOWN) # MULDIV
+    # We don't really need to reconfigure or change these the
+    #  defaults should be correct.
+    #tt.pin_in0.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A0
+    #tt.pin_in1.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A1
+    #tt.pin_in2.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A2
+    #tt.pin_in3.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A3
+    #tt.pin_in4.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A4
+    #tt.pin_in5.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A5
+    #tt.pin_in6.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A6
+    #tt.pin_in7.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A7
+    #tt.pin_out0.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES0
+    #tt.pin_out1.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES1
+    #tt.pin_out2.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES2
+    #tt.pin_out3.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES3
+    #tt.pin_out4.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES4
+    #tt.pin_out5.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES5
+    #tt.pin_out6.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES6
+    #tt.pin_out7.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES7
+
+
+def project325_enable(force: bool = False):
+    # check environment is TT04
+    if not environment_check() and not force:
+        printf(f"WARNING: Overide this halt with: project325_enable(force=True)")
+        return
+    # reset stuff (but not the REPL connection itself)
+    stopClocking() #set_clock_hz(0)  # stop clock
+    tt.nproject_rst(0)
+    tt.project_clk(0)
+    tt.shuttle.reset_and_clock_mux(325) # select_design(325)
+    # enable project bidi pin directions
+    project325_pin_setup()
+    time.sleep_ms(1)
+    tt.clock_project_once()
+    tt.clock_project_once()
+    tt.nproject_rst(1)
+    # reset released
+    #
+    # set default state (MULU 1*1=1)
+    print("project325_enable")
+    MULDIV.off()
+    OPSIGNED.off()
+    wrbus(A, 1)
+    wrbus(B, 1)
+    status()
+
+
+def project325_help():
+    print("Help Info: ")
+    print("  mul_op(a: Number, b: Number, signed: bool) - Execute MUL op")
+    print("  div_op(a: Number, b: Number, signed: bool) - Execute DIV op")
+    print("  status()             - Report Output Status")
+    print("  test()               - Run some tests")
+    print("  project325_enable()  - Active project")
+
+
+project325_help()
+
+environment_check()
+
+### THE END
+
+=== 
+Help Info: 
+  mul_op(a: Number, b: Number, signed: bool) - Execute MUL op
+  div_op(a: Number, b: Number, signed: bool) - Execute DIV op
+  status()             - Report Output Status
+  test()               - Run some tests
+  project325_enable()  - Active project
+WARN: This project is for TT04 but this environment has NOT
+WARN: been validated automatically Please manually check and
+WARN: confirm TT04 is connected
+ * Set Clock to 0
+ * Select Project 325
+ * Open REPL tab and load this script
+True
+>>> 
+>>> 
+>>> project325_enable()
+WARN: This project is for TT04 but this environment has NOT
+WARN: been validated automatically Please manually check and
+WARN: confirm TT04 is connected
+ * Set Clock to 0
+ * Select Project 325
+ * Open REPL tab and load this script
+project325_enable
+MULDIV=0 [Multiply]    OPSIGNED=0  [Unsigned]
+     A=1 [0x1]           B=1  [0x1]
+P=[ 1     1   0x1   00000001  8'b00000001  8'd1]
+>>> 
+>>> 
+>>> mul_op(1, 8)
+MULU A=1 B=8  expect=[8 0x8 4'b1000]
+P=[ 8     8   0x8   00001000  8'b00001000  8'd8]
+8
+>>> 
+>>> mul_op(2, 8)
+MULU A=2 B=8  expect=[16 0x0 4'b0000]
+P=[16    16   0x10   00010000  8'b00010000  8'd16]
+16
+>>> 
+>>> mul_op(15, 15)
+MULU A=15 B=15  expect=[225 0x1 4'b0001]
+P=[225   -31   0xe1   11100001  8'b11100001  8'd225]
+225
+>>> 
+>>> mul_op(15, 0)
+MULU A=15 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+0
+>>> 
+>>> 
+>>> div_op(8, 2)
+DIVU A=8 B=2  expect=Q=[4 0x4 4'b0100] R=[0 0x0 4'b0000]
+Q=[ 4  0x4  0100  4'b0100  4'd4]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+4
+>>> 
+>>> div_op(14, 7)
+DIVU A=14 B=7  expect=Q=[2 0x2 4'b0010] R=[0 0x0 4'b0000]
+Q=[ 2  0x2  0010  4'b0010  4'd2]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+2
+>>> 
+>>> div_op(15, 6)
+DIVU A=15 B=6  expect=Q=[2 0x2 4'b0010] R=[3 0x3 4'b0011]
+Q=[ 2  0x2  0010  4'b0010  4'd2]
+R=[ 3  0x3  0011  4'b0011  4'd3]
+E=
+50
+>>> 
+>>> div_op(15, 0)
+DIVU A=15 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[15  0xf  1111  4'b1111  4'd15]
+E= EDIVZERO
+255
+>>> 
+>>> 
+>>> test()
+MULU A=0 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULU A=1 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULU A=15 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULU A=0 B=1  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULU A=1 B=1  expect=[1 0x1 4'b0001]
+P=[ 1     1   0x1   00000001  8'b00000001  8'd1]
+PASS
+MULU A=15 B=1  expect=[15 0xf 4'b1111]
+P=[15    15   0xf   00001111  8'b00001111  8'd15]
+PASS
+MULU A=0 B=2  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULU A=1 B=2  expect=[2 0x2 4'b0010]
+P=[ 2     2   0x2   00000010  8'b00000010  8'd2]
+PASS
+MULU A=7 B=2  expect=[14 0xe 4'b1110]
+P=[14    14   0xe   00001110  8'b00001110  8'd14]
+PASS
+MULU A=8 B=2  expect=[16 0x0 4'b0000]
+P=[16    16   0x10   00010000  8'b00010000  8'd16]
+PASS
+MULU A=15 B=2  expect=[30 0xe 4'b1110]
+P=[30    30   0x1e   00011110  8'b00011110  8'd30]
+PASS
+MULU A=0 B=15  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULU A=1 B=15  expect=[15 0xf 4'b1111]
+P=[15    15   0xf   00001111  8'b00001111  8'd15]
+PASS
+MULU A=7 B=15  expect=[105 0x9 4'b1001]
+P=[105   105   0x69   01101001  8'b01101001  8'd105]
+PASS
+MULU A=8 B=15  expect=[120 0x8 4'b1000]
+P=[120   120   0x78   01111000  8'b01111000  8'd120]
+PASS
+MULU A=15 B=15  expect=[225 0x1 4'b0001]
+P=[225   -31   0xe1   11100001  8'b11100001  8'd225]
+PASS
+MULS A=0 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=7 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=-8 B=0  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=0 B=1  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=7 B=1  expect=[7 0x7 4'b0111]
+P=[ 7     7   0x7   00000111  8'b00000111  8'd7]
+PASS
+MULS A=-8 B=1  expect=[-8 0x8 4'b1000]
+P=[248    -8   0xf8   11111000  8'b11111000  8'd248]
+PASS
+MULS A=0 B=2  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=7 B=2  expect=[14 0xe 4'b1110]
+P=[14    14   0xe   00001110  8'b00001110  8'd14]
+PASS
+MULS A=-8 B=2  expect=[-16 0x0 4'b0000]
+P=[240   -16   0xf0   11110000  8'b11110000  8'd240]
+PASS
+MULS A=-7 B=2  expect=[-14 0x2 4'b0010]
+P=[242   -14   0xf2   11110010  8'b11110010  8'd242]
+PASS
+MULS A=-1 B=2  expect=[-2 0xe 4'b1110]
+P=[254    -2   0xfe   11111110  8'b11111110  8'd254]
+PASS
+MULS A=0 B=7  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=7 B=7  expect=[49 0x1 4'b0001]
+P=[49    49   0x31   00110001  8'b00110001  8'd49]
+PASS
+MULS A=-8 B=7  expect=[-56 0x8 4'b1000]
+P=[200   -56   0xc8   11001000  8'b11001000  8'd200]
+PASS
+MULS A=-7 B=7  expect=[-49 0xf 4'b1111]
+P=[207   -49   0xcf   11001111  8'b11001111  8'd207]
+PASS
+MULS A=-1 B=7  expect=[-7 0x9 4'b1001]
+P=[249    -7   0xf9   11111001  8'b11111001  8'd249]
+PASS
+MULS A=0 B=-1  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=1 B=-1  expect=[-1 0xf 4'b1111]
+P=[255    -1   0xff   11111111  8'b11111111  8'd255]
+PASS
+MULS A=7 B=-1  expect=[-7 0x9 4'b1001]
+P=[249    -7   0xf9   11111001  8'b11111001  8'd249]
+PASS
+MULS A=-8 B=-1  expect=[8 0x8 4'b1000]
+P=[ 8     8   0x8   00001000  8'b00001000  8'd8]
+PASS
+MULS A=-7 B=-1  expect=[7 0x7 4'b0111]
+P=[ 7     7   0x7   00000111  8'b00000111  8'd7]
+PASS
+MULS A=-1 B=-1  expect=[1 0x1 4'b0001]
+P=[ 1     1   0x1   00000001  8'b00000001  8'd1]
+PASS
+MULS A=0 B=-8  expect=[0 0x0 4'b0000]
+P=[ 0     0   0x0   00000000  8'b00000000  8'd0]
+PASS
+MULS A=1 B=-8  expect=[-8 0x8 4'b1000]
+P=[248    -8   0xf8   11111000  8'b11111000  8'd248]
+PASS
+MULS A=7 B=-8  expect=[-56 0x8 4'b1000]
+P=[200   -56   0xc8   11001000  8'b11001000  8'd200]
+PASS
+MULS A=-8 B=-8  expect=[64 0x0 4'b0000]
+P=[64    64   0x40   01000000  8'b01000000  8'd64]
+PASS
+MULS A=-7 B=-8  expect=[56 0x8 4'b1000]
+P=[56    56   0x38   00111000  8'b00111000  8'd56]
+PASS
+MULS A=-1 B=-8  expect=[8 0x8 4'b1000]
+P=[ 8     8   0x8   00001000  8'b00001000  8'd8]
+PASS
+DIVU A=0 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E= EDIVZERO
+PASS
+DIVU A=1 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E= EDIVZERO
+PASS
+DIVU A=7 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 7  0x7  0111  4'b0111  4'd7]
+E= EDIVZERO
+PASS
+DIVU A=8 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 8  0x8  1000  4'b1000  4'd8]
+E= EDIVZERO
+PASS
+DIVU A=14 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[14  0xe  1110  4'b1110  4'd14]
+E= EDIVZERO
+PASS
+DIVU A=15 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[15  0xf  1111  4'b1111  4'd15]
+E= EDIVZERO
+PASS
+DIVU A=0 B=1  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=1 B=1  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=7 B=1  expect=Q=[7 0x7 4'b0111] R=[0 0x0 4'b0000]
+Q=[ 7  0x7  0111  4'b0111  4'd7]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=8 B=1  expect=Q=[8 0x8 4'b1000] R=[0 0x0 4'b0000]
+Q=[ 8  0x8  1000  4'b1000  4'd8]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=14 B=1  expect=Q=[14 0xe 4'b1110] R=[0 0x0 4'b0000]
+Q=[14  0xe  1110  4'b1110  4'd14]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=15 B=1  expect=Q=[15 0xf 4'b1111] R=[0 0x0 4'b0000]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=0 B=2  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=1 B=2  expect=Q=[0 0x0 4'b0000] R=[1 0x1 4'b0001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVU A=7 B=8  expect=Q=[0 0x0 4'b0000] R=[7 0x7 4'b0111]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 7  0x7  0111  4'b0111  4'd7]
+E=
+PASS
+DIVU A=8 B=9  expect=Q=[0 0x0 4'b0000] R=[8 0x8 4'b1000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 8  0x8  1000  4'b1000  4'd8]
+E=
+PASS
+DIVU A=9 B=10  expect=Q=[0 0x0 4'b0000] R=[9 0x9 4'b1001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 9  0x9  1001  4'b1001  4'd9]
+E=
+PASS
+DIVU A=14 B=15  expect=Q=[0 0x0 4'b0000] R=[14 0xe 4'b1110]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[14  0xe  1110  4'b1110  4'd14]
+E=
+PASS
+DIVU A=14 B=1  expect=Q=[14 0xe 4'b1110] R=[0 0x0 4'b0000]
+Q=[14  0xe  1110  4'b1110  4'd14]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=14 B=2  expect=Q=[7 0x7 4'b0111] R=[0 0x0 4'b0000]
+Q=[ 7  0x7  0111  4'b0111  4'd7]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=14 B=3  expect=Q=[4 0x4 4'b0100] R=[2 0x2 4'b0010]
+Q=[ 4  0x4  0100  4'b0100  4'd4]
+R=[ 2  0x2  0010  4'b0010  4'd2]
+E=
+PASS
+DIVU A=15 B=1  expect=Q=[15 0xf 4'b1111] R=[0 0x0 4'b0000]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=15 B=2  expect=Q=[7 0x7 4'b0111] R=[1 0x1 4'b0001]
+Q=[ 7  0x7  0111  4'b0111  4'd7]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVU A=15 B=3  expect=Q=[5 0x5 4'b0101] R=[0 0x0 4'b0000]
+Q=[ 5  0x5  0101  4'b0101  4'd5]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=0 B=15  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVU A=1 B=15  expect=Q=[0 0x0 4'b0000] R=[1 0x1 4'b0001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVU A=7 B=15  expect=Q=[0 0x0 4'b0000] R=[7 0x7 4'b0111]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 7  0x7  0111  4'b0111  4'd7]
+E=
+PASS
+DIVU A=8 B=15  expect=Q=[0 0x0 4'b0000] R=[8 0x8 4'b1000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 8  0x8  1000  4'b1000  4'd8]
+E=
+PASS
+DIVU A=14 B=15  expect=Q=[0 0x0 4'b0000] R=[14 0xe 4'b1110]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[14  0xe  1110  4'b1110  4'd14]
+E=
+PASS
+DIVU A=15 B=15  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=0 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E= EDIVZERO
+PASS
+DIVS A=1 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E= EDIVZERO
+PASS
+DIVS A=7 B=0  expect=EDIVZERO
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 7  0x7  0111  4'b0111  4'd7]
+E= EDIVZERO
+PASS
+DIVS A=-8 B=0  expect=EDIVZERO
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 8  0x8  1000  4'b1000  4'd8]
+E= EDIVZERO
+PASS
+DIVS A=-7 B=0  expect=EDIVZERO
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 9  0x9  1001  4'b1001  4'd9]
+E= EDIVZERO
+PASS
+DIVS A=-1 B=0  expect=EDIVZERO
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[15  0xf  1111  4'b1111  4'd15]
+E= EDIVZERO
+PASS
+DIVS A=0 B=1  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=1 B=1  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=7 B=1  expect=Q=[7 0x7 4'b0111] R=[0 0x0 4'b0000]
+Q=[ 7  0x7  0111  4'b0111  4'd7]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-8 B=1  expect=Q=[-8 0x-8 4'b1000] R=[0 0x0 4'b0000]
+Q=[ 8  0x8  1000  4'b1000  4'd8]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-7 B=1  expect=Q=[-7 0x-7 4'b1001] R=[0 0x0 4'b0000]
+Q=[ 9  0x9  1001  4'b1001  4'd9]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-1 B=1  expect=Q=[-1 0x-1 4'b1111] R=[0 0x0 4'b0000]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=0 B=2  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=1 B=2  expect=Q=[0 0x0 4'b0000] R=[1 0x1 4'b0001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVS A=7 B=2  expect=Q=[3 0x3 4'b0011] R=[1 0x1 4'b0001]
+Q=[ 3  0x3  0011  4'b0011  4'd3]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVS A=-8 B=2  expect=Q=[-4 0x-4 4'b1100] R=[0 0x0 4'b0000]
+Q=[12  0xc  1100  4'b1100  4'd12]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-7 B=2  expect=Q=[-3 0x-3 4'b1101] R=[1 0x1 4'b0001]
+Q=[13  0xd  1101  4'b1101  4'd13]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=-1 B=2  expect=Q=[0 0x0 4'b0000] R=[1 0x1 4'b0001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=0 B=7  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=1 B=7  expect=Q=[0 0x0 4'b0000] R=[1 0x1 4'b0001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVS A=7 B=7  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-8 B=7  expect=Q=[-1 0x-1 4'b1111] R=[6 0x6 4'b0110]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=-7 B=7  expect=Q=[-1 0x-1 4'b1111] R=[0 0x0 4'b0000]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-1 B=7  expect=Q=[0 0x0 4'b0000] R=[6 0x6 4'b0110]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=0 B=-8  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=1 B=-8  expect=Q=[0 0x0 4'b0000] R=[-7 0x-7 4'b1001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVS A=7 B=-8  expect=Q=[0 0x0 4'b0000] R=[-1 0x-1 4'b1111]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 7  0x7  0111  4'b0111  4'd7]
+E=
+PASS
+DIVS A=-8 B=-8  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-7 B=-8  expect=Q=[0 0x0 4'b0000] R=[-7 0x-7 4'b1001]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 9  0x9  1001  4'b1001  4'd9]
+E=
+PASS
+DIVS A=-1 B=-8  expect=Q=[0 0x0 4'b0000] R=[-1 0x-1 4'b1111]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=0 B=-7  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=1 B=-7  expect=Q=[0 0x0 4'b0000] R=[-6 0x-6 4'b1010]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 1  0x1  0001  4'b0001  4'd1]
+E=
+PASS
+DIVS A=7 B=-7  expect=Q=[-1 0x-1 4'b1111] R=[0 0x0 4'b0000]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-8 B=-7  expect=Q=[1 0x1 4'b0001] R=[-1 0x-1 4'b1111]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=-7 B=-7  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-1 B=-7  expect=Q=[0 0x0 4'b0000] R=[-1 0x-1 4'b1111]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[15  0xf  1111  4'b1111  4'd15]
+E=
+PASS
+DIVS A=0 B=-1  expect=Q=[0 0x0 4'b0000] R=[0 0x0 4'b0000]
+Q=[ 0  0x0  0000  4'b0000  4'd0]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=1 B=-1  expect=Q=[-1 0x-1 4'b1111] R=[0 0x0 4'b0000]
+Q=[15  0xf  1111  4'b1111  4'd15]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=7 B=-1  expect=Q=[-7 0x-7 4'b1001] R=[0 0x0 4'b0000]
+Q=[ 9  0x9  1001  4'b1001  4'd9]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-8 B=-1  expect=Q=[8 0x8 4'b1000] R=[0 0x0 4'b0000]
+Q=[ 8  0x8  1000  4'b1000  4'd8]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-7 B=-1  expect=Q=[7 0x7 4'b0111] R=[0 0x0 4'b0000]
+Q=[ 7  0x7  0111  4'b0111  4'd7]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+DIVS A=-1 B=-1  expect=Q=[1 0x1 4'b0001] R=[0 0x0 4'b0000]
+Q=[ 1  0x1  0001  4'b0001  4'd1]
+R=[ 0  0x0  0000  4'b0000  4'd0]
+E=
+PASS
+SUCCESS: ALL TESTS PASS
+True
+>>> 

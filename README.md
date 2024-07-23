@@ -15,6 +15,7 @@ Github Actions include:
 
 Useful links
  * [Github Pages](https://dlmiles.github.io/tt04-muldiv4/)
+ * [Silicon Testing](commander/README.md)
  * [Tiny Tapeout 4 project ID#325 information ](https://tinytapeout.com/runs/tt04/325/)
  * [Tiny Tapeout 4 shuttle information ](https://tinytapeout.com/runs/tt04/)
 
