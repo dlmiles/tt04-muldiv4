@@ -1,0 +1,1005 @@
+
+### This file was created using: ./pyttloader/pyttloader.py -D /dev/ttyACM0 --capture --machine-reset repl.py
+
+>>> 
+>>> 
+DISCONNECTED
+RECONNECTED
+ttboard.config.config_file: Loaded config config.ini
+ttboard.demoboard: Demoboard starting up in mode ASIC_RP_CONTROL
+ttboard.pins.pins: Setting mode to ASIC_RP_CONTROL
+ttboard.boot.rom: Got ROM data shuttle=tt04
+repo=TinyTapeout/tinytapeout-04
+
+ttboard.project_mux: Disable (selecting project 0)
+ttboard.project_mux: Chip reported by ROM is tt04 commit FAKEDATA
+ttboard.project_mux: Loading shuttle file /shuttles/tt04.json
+ttboard.project_mux: Already have a "wokwi_traffic_light" here...
+ttboard.project_mux: Enable design tt_um_factory_test
+
+
+
+The 'tt' object is available.
+
+Projects may be enabled with tt.shuttle.PROJECT_NAME.enable(), e.g.
+tt.shuttle.tt_um_urish_simon.enable()
+
+Pins may be accessed by name, e.g. tt.out3() to read or tt.in5(1) to write.
+Config of pins may be done using mode attribute, e.g. 
+tt.uio3.mode = Pins.OUT
+
+
+
+<DemoBoard in ASIC_RP_CONTROL, auto-clocking @ 10 tt04 project 'tt_um_factory_test (1) @ https://github.com/TinyTapeout/tt04-factory-test'>
+
+MicroPython v1.22.2 on 2024-02-22; Raspberry Pi Pico with RP2040
+Type "help()" for more information.
+>>> 
+>>> stopClocking() # tt.project_clock_stop()
+ttboard.pins.standard: Disabling pwm on rp_projclk
+>>> UPLOADING: repl.py DONE 30198 bytes
+
+>>> project325_activate()
+READY: This project is for TT04 which matches tt.chip_ROM.shuttle=tt04
+ttboard.pins.pins: Setting mode to ASIC_RP_CONTROL
+STATUS: Project 325 successfully activated
+MULDIV=0 [Multiply]    OPSIGNED=0 [Unsigned]
+     A=   1     1  [0x01]       B=   1     1  [0x01]
+P=[   1    1 0x01 8'b00000001 8'd001] actual
+>>> mulu_op_status(1, 8)
+MULU SIGNED=0     A=1   B=8   expr=1 * 8 = 8
+P=[   8    8 0x08 8'b00001000 8'd008] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[   8   -8 0x08     4'b1000 4'd008]
+P=[   8    8 0x08 8'b00001000 8'd008] actual
+'8'
+>>> 
+>>> mulu_op_status(2, 8)
+MULU SIGNED=0     A=2   B=8   expr=2 * 8 = 16
+P=[  16   16 0x10 8'b00010000 8'd016] expect
+A=[   2    2 0x02     4'b0010 4'd002]
+B=[   8   -8 0x08     4'b1000 4'd008]
+P=[  16   16 0x10 8'b00010000 8'd016] actual
+'16'
+>>> 
+>>> mulu_op_status(15, 15)
+MULU SIGNED=0     A=15  B=15  expr=15 * 15 = 225
+P=[ 225  -31 0xe1 8'b11100001 8'd225] expect
+A=[  15   -1 0x0f     4'b1111 4'd015]
+B=[  15   -1 0x0f     4'b1111 4'd015]
+P=[ 225  -31 0xe1 8'b11100001 8'd225] actual
+'225'
+>>> 
+>>> mulu_op_status(15, 0)
+MULU SIGNED=0     A=15  B=0   expr=15 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[  15   -1 0x0f     4'b1111 4'd015]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+'0'
+>>> 
+>>> divu_op_status(8, 2)
+DIVU SIGNED=0     A=8   B=2   expr=8 / 2 = 4 r 0
+Q=[  4   4 0x04  4'b0100  4'd04] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  8  -8 0x08  4'b1000  4'd08]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  4   4 0x04  4'b0100  4'd04] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+'4'
+>>> 
+>>> divu_op_status(14, 7)
+DIVU SIGNED=0     A=14  B=7   expr=14 / 7 = 2 r 0
+Q=[  2   2 0x02  4'b0010  4'd02] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[  2   2 0x02  4'b0010  4'd02] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+'2'
+>>> 
+>>> divu_op_status(15, 6)
+DIVU SIGNED=0     A=15  B=6   expr=15 / 6 = 2 r 3
+Q=[  2   2 0x02  4'b0010  4'd02] expect
+R=[  3   3 0x03  4'b0011  4'd03] expect
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  6   6 0x06  4'b0110  4'd06]
+Q=[  2   2 0x02  4'b0010  4'd02] actual
+R=[  3   3 0x03  4'b0011  4'd03] actual
+'2r3'
+>>> 
+>>> divu_op_status(15, 0)
+DIVU SIGNED=0     A=15  B=0   expr=15 / 0 = EDIVZERO
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+E=EDIVZERO
+'EDIVZERO'
+>>> 
+>>> test()
+MULU SIGNED=0     A=0   B=0   expr=0 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=1   B=0   expr=1 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=7   B=0   expr=7 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=8   B=0   expr=8 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   8   -8 0x08     4'b1000 4'd008]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=15  B=0   expr=15 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[  15   -1 0x0f     4'b1111 4'd015]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=0   B=1   expr=0 * 1 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=1   B=1   expr=1 * 1 = 1
+P=[   1    1 0x01 8'b00000001 8'd001] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[   1    1 0x01 8'b00000001 8'd001] actual
+PASS
+MULU SIGNED=0     A=7   B=1   expr=7 * 1 = 7
+P=[   7    7 0x07 8'b00000111 8'd007] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[   7    7 0x07 8'b00000111 8'd007] actual
+PASS
+MULU SIGNED=0     A=8   B=1   expr=8 * 1 = 8
+P=[   8    8 0x08 8'b00001000 8'd008] expect
+A=[   8   -8 0x08     4'b1000 4'd008]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[   8    8 0x08 8'b00001000 8'd008] actual
+PASS
+MULU SIGNED=0     A=15  B=1   expr=15 * 1 = 15
+P=[  15   15 0x0f 8'b00001111 8'd015] expect
+A=[  15   -1 0x0f     4'b1111 4'd015]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[  15   15 0x0f 8'b00001111 8'd015] actual
+PASS
+MULU SIGNED=0     A=0   B=2   expr=0 * 2 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=1   B=2   expr=1 * 2 = 2
+P=[   2    2 0x02 8'b00000010 8'd002] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[   2    2 0x02 8'b00000010 8'd002] actual
+PASS
+MULU SIGNED=0     A=7   B=2   expr=7 * 2 = 14
+P=[  14   14 0x0e 8'b00001110 8'd014] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[  14   14 0x0e 8'b00001110 8'd014] actual
+PASS
+MULU SIGNED=0     A=8   B=2   expr=8 * 2 = 16
+P=[  16   16 0x10 8'b00010000 8'd016] expect
+A=[   8   -8 0x08     4'b1000 4'd008]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[  16   16 0x10 8'b00010000 8'd016] actual
+PASS
+MULU SIGNED=0     A=15  B=2   expr=15 * 2 = 30
+P=[  30   30 0x1e 8'b00011110 8'd030] expect
+A=[  15   -1 0x0f     4'b1111 4'd015]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[  30   30 0x1e 8'b00011110 8'd030] actual
+PASS
+MULU SIGNED=0     A=0   B=15  expr=0 * 15 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[  15   -1 0x0f     4'b1111 4'd015]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULU SIGNED=0     A=1   B=15  expr=1 * 15 = 15
+P=[  15   15 0x0f 8'b00001111 8'd015] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[  15   -1 0x0f     4'b1111 4'd015]
+P=[  15   15 0x0f 8'b00001111 8'd015] actual
+PASS
+MULU SIGNED=0     A=7   B=15  expr=7 * 15 = 105
+P=[ 105  105 0x69 8'b01101001 8'd105] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[  15   -1 0x0f     4'b1111 4'd015]
+P=[ 105  105 0x69 8'b01101001 8'd105] actual
+PASS
+MULU SIGNED=0     A=8   B=15  expr=8 * 15 = 120
+P=[ 120  120 0x78 8'b01111000 8'd120] expect
+A=[   8   -8 0x08     4'b1000 4'd008]
+B=[  15   -1 0x0f     4'b1111 4'd015]
+P=[ 120  120 0x78 8'b01111000 8'd120] actual
+PASS
+MULU SIGNED=0     A=15  B=15  expr=15 * 15 = 225
+P=[ 225  -31 0xe1 8'b11100001 8'd225] expect
+A=[  15   -1 0x0f     4'b1111 4'd015]
+B=[  15   -1 0x0f     4'b1111 4'd015]
+P=[ 225  -31 0xe1 8'b11100001 8'd225] actual
+PASS
+MULS SIGNED=1     A=0   B=0   expr=0 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=1   B=0   expr=1 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=7   B=0   expr=7 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=-8  B=0   expr=-8 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[  -8   -8 0x08     4'b1000 4'd008]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=-7  B=0   expr=-7 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[  -7   -7 0x09     4'b1001 4'd009]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=-1  B=0   expr=-1 * 0 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[  -1   -1 0x0f     4'b1111 4'd015]
+B=[   0    0 0x00     4'b0000 4'd000]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=0   B=1   expr=0 * 1 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=7   B=1   expr=7 * 1 = 7
+P=[   7    7 0x07 8'b00000111 8'd007] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[   7    7 0x07 8'b00000111 8'd007] actual
+PASS
+MULS SIGNED=1     A=-8  B=1   expr=-8 * 1 = -8
+P=[  -8   -8 0xf8 8'b11111000 8'd248] expect
+A=[  -8   -8 0x08     4'b1000 4'd008]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[ 248   -8 0xf8 8'b11111000 8'd248] actual
+PASS
+MULS SIGNED=1     A=-7  B=1   expr=-7 * 1 = -7
+P=[  -7   -7 0xf9 8'b11111001 8'd249] expect
+A=[  -7   -7 0x09     4'b1001 4'd009]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[ 249   -7 0xf9 8'b11111001 8'd249] actual
+PASS
+MULS SIGNED=1     A=-1  B=1   expr=-1 * 1 = -1
+P=[  -1   -1 0xff 8'b11111111 8'd255] expect
+A=[  -1   -1 0x0f     4'b1111 4'd015]
+B=[   1    1 0x01     4'b0001 4'd001]
+P=[ 255   -1 0xff 8'b11111111 8'd255] actual
+PASS
+MULS SIGNED=1     A=0   B=2   expr=0 * 2 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=7   B=2   expr=7 * 2 = 14
+P=[  14   14 0x0e 8'b00001110 8'd014] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[  14   14 0x0e 8'b00001110 8'd014] actual
+PASS
+MULS SIGNED=1     A=-8  B=2   expr=-8 * 2 = -16
+P=[ -16  -16 0xf0 8'b11110000 8'd240] expect
+A=[  -8   -8 0x08     4'b1000 4'd008]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[ 240  -16 0xf0 8'b11110000 8'd240] actual
+PASS
+MULS SIGNED=1     A=-7  B=2   expr=-7 * 2 = -14
+P=[ -14  -14 0xf2 8'b11110010 8'd242] expect
+A=[  -7   -7 0x09     4'b1001 4'd009]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[ 242  -14 0xf2 8'b11110010 8'd242] actual
+PASS
+MULS SIGNED=1     A=-1  B=2   expr=-1 * 2 = -2
+P=[  -2   -2 0xfe 8'b11111110 8'd254] expect
+A=[  -1   -1 0x0f     4'b1111 4'd015]
+B=[   2    2 0x02     4'b0010 4'd002]
+P=[ 254   -2 0xfe 8'b11111110 8'd254] actual
+PASS
+MULS SIGNED=1     A=0   B=7   expr=0 * 7 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[   7    7 0x07     4'b0111 4'd007]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=7   B=7   expr=7 * 7 = 49
+P=[  49   49 0x31 8'b00110001 8'd049] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[   7    7 0x07     4'b0111 4'd007]
+P=[  49   49 0x31 8'b00110001 8'd049] actual
+PASS
+MULS SIGNED=1     A=-8  B=7   expr=-8 * 7 = -56
+P=[ -56  -56 0xc8 8'b11001000 8'd200] expect
+A=[  -8   -8 0x08     4'b1000 4'd008]
+B=[   7    7 0x07     4'b0111 4'd007]
+P=[ 200  -56 0xc8 8'b11001000 8'd200] actual
+PASS
+MULS SIGNED=1     A=-7  B=7   expr=-7 * 7 = -49
+P=[ -49  -49 0xcf 8'b11001111 8'd207] expect
+A=[  -7   -7 0x09     4'b1001 4'd009]
+B=[   7    7 0x07     4'b0111 4'd007]
+P=[ 207  -49 0xcf 8'b11001111 8'd207] actual
+PASS
+MULS SIGNED=1     A=-1  B=7   expr=-1 * 7 = -7
+P=[  -7   -7 0xf9 8'b11111001 8'd249] expect
+A=[  -1   -1 0x0f     4'b1111 4'd015]
+B=[   7    7 0x07     4'b0111 4'd007]
+P=[ 249   -7 0xf9 8'b11111001 8'd249] actual
+PASS
+MULS SIGNED=1     A=0   B=-1  expr=0 * -1 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[  -1   -1 0x0f     4'b1111 4'd015]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=1   B=-1  expr=1 * -1 = -1
+P=[  -1   -1 0xff 8'b11111111 8'd255] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[  -1   -1 0x0f     4'b1111 4'd015]
+P=[ 255   -1 0xff 8'b11111111 8'd255] actual
+PASS
+MULS SIGNED=1     A=7   B=-1  expr=7 * -1 = -7
+P=[  -7   -7 0xf9 8'b11111001 8'd249] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[  -1   -1 0x0f     4'b1111 4'd015]
+P=[ 249   -7 0xf9 8'b11111001 8'd249] actual
+PASS
+MULS SIGNED=1     A=-8  B=-1  expr=-8 * -1 = 8
+P=[   8    8 0x08 8'b00001000 8'd008] expect
+A=[  -8   -8 0x08     4'b1000 4'd008]
+B=[  -1   -1 0x0f     4'b1111 4'd015]
+P=[   8    8 0x08 8'b00001000 8'd008] actual
+PASS
+MULS SIGNED=1     A=-7  B=-1  expr=-7 * -1 = 7
+P=[   7    7 0x07 8'b00000111 8'd007] expect
+A=[  -7   -7 0x09     4'b1001 4'd009]
+B=[  -1   -1 0x0f     4'b1111 4'd015]
+P=[   7    7 0x07 8'b00000111 8'd007] actual
+PASS
+MULS SIGNED=1     A=-1  B=-1  expr=-1 * -1 = 1
+P=[   1    1 0x01 8'b00000001 8'd001] expect
+A=[  -1   -1 0x0f     4'b1111 4'd015]
+B=[  -1   -1 0x0f     4'b1111 4'd015]
+P=[   1    1 0x01 8'b00000001 8'd001] actual
+PASS
+MULS SIGNED=1     A=0   B=-8  expr=0 * -8 = 0
+P=[   0    0 0x00 8'b00000000 8'd000] expect
+A=[   0    0 0x00     4'b0000 4'd000]
+B=[  -8   -8 0x08     4'b1000 4'd008]
+P=[   0    0 0x00 8'b00000000 8'd000] actual
+PASS
+MULS SIGNED=1     A=1   B=-8  expr=1 * -8 = -8
+P=[  -8   -8 0xf8 8'b11111000 8'd248] expect
+A=[   1    1 0x01     4'b0001 4'd001]
+B=[  -8   -8 0x08     4'b1000 4'd008]
+P=[ 248   -8 0xf8 8'b11111000 8'd248] actual
+PASS
+MULS SIGNED=1     A=7   B=-8  expr=7 * -8 = -56
+P=[ -56  -56 0xc8 8'b11001000 8'd200] expect
+A=[   7    7 0x07     4'b0111 4'd007]
+B=[  -8   -8 0x08     4'b1000 4'd008]
+P=[ 200  -56 0xc8 8'b11001000 8'd200] actual
+PASS
+MULS SIGNED=1     A=-8  B=-8  expr=-8 * -8 = 64
+P=[  64   64 0x40 8'b01000000 8'd064] expect
+A=[  -8   -8 0x08     4'b1000 4'd008]
+B=[  -8   -8 0x08     4'b1000 4'd008]
+P=[  64   64 0x40 8'b01000000 8'd064] actual
+PASS
+MULS SIGNED=1     A=-7  B=-8  expr=-7 * -8 = 56
+P=[  56   56 0x38 8'b00111000 8'd056] expect
+A=[  -7   -7 0x09     4'b1001 4'd009]
+B=[  -8   -8 0x08     4'b1000 4'd008]
+P=[  56   56 0x38 8'b00111000 8'd056] actual
+PASS
+MULS SIGNED=1     A=-1  B=-8  expr=-1 * -8 = 8
+P=[   8    8 0x08 8'b00001000 8'd008] expect
+A=[  -1   -1 0x0f     4'b1111 4'd015]
+B=[  -8   -8 0x08     4'b1000 4'd008]
+P=[   8    8 0x08 8'b00001000 8'd008] actual
+PASS
+DIVU SIGNED=0     A=0   B=0   expr=0 / 0 = EDIVZERO
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+E=EDIVZERO
+PASS
+DIVU SIGNED=0     A=1   B=0   expr=1 / 0 = EDIVZERO
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+E=EDIVZERO
+PASS
+DIVU SIGNED=0     A=7   B=0   expr=7 / 0 = EDIVZERO
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  7   7 0x07  4'b0111  4'd07] actual
+E=EDIVZERO
+PASS
+DIVU SIGNED=0     A=8   B=0   expr=8 / 0 = EDIVZERO
+A=[  8  -8 0x08  4'b1000  4'd08]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  8  -8 0x08  4'b1000  4'd08] actual
+E=EDIVZERO
+PASS
+DIVU SIGNED=0     A=14  B=0   expr=14 / 0 = EDIVZERO
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[ 14  -2 0x0e  4'b1110  4'd14] actual
+E=EDIVZERO
+PASS
+DIVU SIGNED=0     A=15  B=0   expr=15 / 0 = EDIVZERO
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+E=EDIVZERO
+PASS
+DIVU SIGNED=0     A=0   B=1   expr=0 / 1 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=1   B=1   expr=1 / 1 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=7   B=1   expr=7 / 1 = 7 r 0
+Q=[  7   7 0x07  4'b0111  4'd07] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  7   7 0x07  4'b0111  4'd07] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=8   B=1   expr=8 / 1 = 8 r 0
+Q=[  8  -8 0x08  4'b1000  4'd08] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  8  -8 0x08  4'b1000  4'd08]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  8  -8 0x08  4'b1000  4'd08] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=14  B=1   expr=14 / 1 = 14 r 0
+Q=[ 14  -2 0x0e  4'b1110  4'd14] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[ 14  -2 0x0e  4'b1110  4'd14] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=15  B=1   expr=15 / 1 = 15 r 0
+Q=[ 15  -1 0x0f  4'b1111  4'd15] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=0   B=2   expr=0 / 2 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=1   B=2   expr=1 / 2 = 0 r 1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVU SIGNED=0     A=7   B=8   expr=7 / 8 = 0 r 7
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  7   7 0x07  4'b0111  4'd07] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  8  -8 0x08  4'b1000  4'd08]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  7   7 0x07  4'b0111  4'd07] actual
+PASS
+DIVU SIGNED=0     A=8   B=9   expr=8 / 9 = 0 r 8
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  8  -8 0x08  4'b1000  4'd08] expect
+A=[  8  -8 0x08  4'b1000  4'd08]
+B=[  9  -7 0x09  4'b1001  4'd09]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  8  -8 0x08  4'b1000  4'd08] actual
+PASS
+DIVU SIGNED=0     A=9   B=10  expr=9 / 10 = 0 r 9
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  9  -7 0x09  4'b1001  4'd09] expect
+A=[  9  -7 0x09  4'b1001  4'd09]
+B=[ 10  -6 0x0a  4'b1010  4'd10]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  9  -7 0x09  4'b1001  4'd09] actual
+PASS
+DIVU SIGNED=0     A=14  B=15  expr=14 / 15 = 0 r 14
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ 14  -2 0x0e  4'b1110  4'd14] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[ 14  -2 0x0e  4'b1110  4'd14] actual
+PASS
+DIVU SIGNED=0     A=14  B=1   expr=14 / 1 = 14 r 0
+Q=[ 14  -2 0x0e  4'b1110  4'd14] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[ 14  -2 0x0e  4'b1110  4'd14] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=14  B=2   expr=14 / 2 = 7 r 0
+Q=[  7   7 0x07  4'b0111  4'd07] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  7   7 0x07  4'b0111  4'd07] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=14  B=3   expr=14 / 3 = 4 r 2
+Q=[  4   4 0x04  4'b0100  4'd04] expect
+R=[  2   2 0x02  4'b0010  4'd02] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[  3   3 0x03  4'b0011  4'd03]
+Q=[  4   4 0x04  4'b0100  4'd04] actual
+R=[  2   2 0x02  4'b0010  4'd02] actual
+PASS
+DIVU SIGNED=0     A=15  B=1   expr=15 / 1 = 15 r 0
+Q=[ 15  -1 0x0f  4'b1111  4'd15] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=15  B=2   expr=15 / 2 = 7 r 1
+Q=[  7   7 0x07  4'b0111  4'd07] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  7   7 0x07  4'b0111  4'd07] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVU SIGNED=0     A=15  B=3   expr=15 / 3 = 5 r 0
+Q=[  5   5 0x05  4'b0101  4'd05] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[  3   3 0x03  4'b0011  4'd03]
+Q=[  5   5 0x05  4'b0101  4'd05] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=0   B=15  expr=0 / 15 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVU SIGNED=0     A=1   B=15  expr=1 / 15 = 0 r 1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVU SIGNED=0     A=7   B=15  expr=7 / 15 = 0 r 7
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  7   7 0x07  4'b0111  4'd07] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  7   7 0x07  4'b0111  4'd07] actual
+PASS
+DIVU SIGNED=0     A=8   B=15  expr=8 / 15 = 0 r 8
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  8  -8 0x08  4'b1000  4'd08] expect
+A=[  8  -8 0x08  4'b1000  4'd08]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  8  -8 0x08  4'b1000  4'd08] actual
+PASS
+DIVU SIGNED=0     A=14  B=15  expr=14 / 15 = 0 r 14
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ 14  -2 0x0e  4'b1110  4'd14] expect
+A=[ 14  -2 0x0e  4'b1110  4'd14]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[ 14  -2 0x0e  4'b1110  4'd14] actual
+PASS
+DIVU SIGNED=0     A=15  B=15  expr=15 / 15 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ 15  -1 0x0f  4'b1111  4'd15]
+B=[ 15  -1 0x0f  4'b1111  4'd15]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=0   B=0   expr=0 / 0 = EDIVZERO
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+E=EDIVZERO
+PASS
+DIVS SIGNED=1     A=1   B=0   expr=1 / 0 = EDIVZERO
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+E=EDIVZERO
+PASS
+DIVS SIGNED=1     A=7   B=0   expr=7 / 0 = EDIVZERO
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  7   7 0x07  4'b0111  4'd07] actual
+E=EDIVZERO
+PASS
+DIVS SIGNED=1     A=-8  B=0   expr=-8 / 0 = EDIVZERO
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  8  -8 0x08  4'b1000  4'd08] actual
+E=EDIVZERO
+PASS
+DIVS SIGNED=1     A=-7  B=0   expr=-7 / 0 = EDIVZERO
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  9  -7 0x09  4'b1001  4'd09] actual
+E=EDIVZERO
+PASS
+DIVS SIGNED=1     A=-1  B=0   expr=-1 / 0 = EDIVZERO
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[  0   0 0x00  4'b0000  4'd00]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+E=EDIVZERO
+PASS
+DIVS SIGNED=1     A=0   B=1   expr=0 / 1 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=1   B=1   expr=1 / 1 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=7   B=1   expr=7 / 1 = 7 r 0
+Q=[  7   7 0x07  4'b0111  4'd07] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  7   7 0x07  4'b0111  4'd07] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-8  B=1   expr=-8 / 1 = -8 r 0
+Q=[ -8  -8 0x08  4'b1000  4'd08] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  8  -8 0x08  4'b1000  4'd08] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-7  B=1   expr=-7 / 1 = -7 r 0
+Q=[ -7  -7 0x09  4'b1001  4'd09] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[  9  -7 0x09  4'b1001  4'd09] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-1  B=1   expr=-1 / 1 = -1 r 0
+Q=[ -1  -1 0x0f  4'b1111  4'd15] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[  1   1 0x01  4'b0001  4'd01]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=0   B=2   expr=0 / 2 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=1   B=2   expr=1 / 2 = 0 r 1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVS SIGNED=1     A=7   B=2   expr=7 / 2 = 3 r 1
+Q=[  3   3 0x03  4'b0011  4'd03] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  3   3 0x03  4'b0011  4'd03] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVS SIGNED=1     A=-8  B=2   expr=-8 / 2 = -4 r 0
+Q=[ -4  -4 0x0c  4'b1100  4'd12] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[ 12  -4 0x0c  4'b1100  4'd12] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-7  B=2   expr=-7 / 2 = -3 r 1
+Q=[ -3  -3 0x0d  4'b1101  4'd13] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[ 13  -3 0x0d  4'b1101  4'd13] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=-1  B=2   expr=-1 / 2 = 0 r 1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[  2   2 0x02  4'b0010  4'd02]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=0   B=7   expr=0 / 7 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=1   B=7   expr=1 / 7 = 0 r 1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  1   1 0x01  4'b0001  4'd01] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVS SIGNED=1     A=7   B=7   expr=7 / 7 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-8  B=7   expr=-8 / 7 = -1 r 6
+Q=[ -1  -1 0x0f  4'b1111  4'd15] expect
+R=[  6   6 0x06  4'b0110  4'd06] expect
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=-7  B=7   expr=-7 / 7 = -1 r 0
+Q=[ -1  -1 0x0f  4'b1111  4'd15] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-1  B=7   expr=-1 / 7 = 0 r 6
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  6   6 0x06  4'b0110  4'd06] expect
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[  7   7 0x07  4'b0111  4'd07]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=0   B=-8  expr=0 / -8 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[ -8  -8 0x08  4'b1000  4'd08]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=1   B=-8  expr=1 / -8 = 0 r -7
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ -7  -7 0x09  4'b1001  4'd09] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[ -8  -8 0x08  4'b1000  4'd08]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVS SIGNED=1     A=7   B=-8  expr=7 / -8 = 0 r -1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ -1  -1 0x0f  4'b1111  4'd15] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[ -8  -8 0x08  4'b1000  4'd08]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  7   7 0x07  4'b0111  4'd07] actual
+PASS
+DIVS SIGNED=1     A=-8  B=-8  expr=-8 / -8 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[ -8  -8 0x08  4'b1000  4'd08]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-7  B=-8  expr=-7 / -8 = 0 r -7
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ -7  -7 0x09  4'b1001  4'd09] expect
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[ -8  -8 0x08  4'b1000  4'd08]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  9  -7 0x09  4'b1001  4'd09] actual
+PASS
+DIVS SIGNED=1     A=-1  B=-8  expr=-1 / -8 = 0 r -1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ -1  -1 0x0f  4'b1111  4'd15] expect
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[ -8  -8 0x08  4'b1000  4'd08]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=0   B=-7  expr=0 / -7 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[ -7  -7 0x09  4'b1001  4'd09]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=1   B=-7  expr=1 / -7 = 0 r -6
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ -6  -6 0x0a  4'b1010  4'd10] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[ -7  -7 0x09  4'b1001  4'd09]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  1   1 0x01  4'b0001  4'd01] actual
+PASS
+DIVS SIGNED=1     A=7   B=-7  expr=7 / -7 = -1 r 0
+Q=[ -1  -1 0x0f  4'b1111  4'd15] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[ -7  -7 0x09  4'b1001  4'd09]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-8  B=-7  expr=-8 / -7 = 1 r -1
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[ -1  -1 0x0f  4'b1111  4'd15] expect
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[ -7  -7 0x09  4'b1001  4'd09]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=-7  B=-7  expr=-7 / -7 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[ -7  -7 0x09  4'b1001  4'd09]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-1  B=-7  expr=-1 / -7 = 0 r -1
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[ -1  -1 0x0f  4'b1111  4'd15] expect
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[ -7  -7 0x09  4'b1001  4'd09]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[ 15  -1 0x0f  4'b1111  4'd15] actual
+PASS
+DIVS SIGNED=1     A=0   B=-1  expr=0 / -1 = 0 r 0
+Q=[  0   0 0x00  4'b0000  4'd00] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  0   0 0x00  4'b0000  4'd00]
+B=[ -1  -1 0x0f  4'b1111  4'd15]
+Q=[  0   0 0x00  4'b0000  4'd00] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=1   B=-1  expr=1 / -1 = -1 r 0
+Q=[ -1  -1 0x0f  4'b1111  4'd15] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  1   1 0x01  4'b0001  4'd01]
+B=[ -1  -1 0x0f  4'b1111  4'd15]
+Q=[ 15  -1 0x0f  4'b1111  4'd15] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=7   B=-1  expr=7 / -1 = -7 r 0
+Q=[ -7  -7 0x09  4'b1001  4'd09] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[  7   7 0x07  4'b0111  4'd07]
+B=[ -1  -1 0x0f  4'b1111  4'd15]
+Q=[  9  -7 0x09  4'b1001  4'd09] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-8  B=-1  expr=-8 / -1 = 8 r 0
+Q=[  8  -8 0x08  4'b1000  4'd08] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -8  -8 0x08  4'b1000  4'd08]
+B=[ -1  -1 0x0f  4'b1111  4'd15]
+Q=[  8  -8 0x08  4'b1000  4'd08] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-7  B=-1  expr=-7 / -1 = 7 r 0
+Q=[  7   7 0x07  4'b0111  4'd07] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -7  -7 0x09  4'b1001  4'd09]
+B=[ -1  -1 0x0f  4'b1111  4'd15]
+Q=[  7   7 0x07  4'b0111  4'd07] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+DIVS SIGNED=1     A=-1  B=-1  expr=-1 / -1 = 1 r 0
+Q=[  1   1 0x01  4'b0001  4'd01] expect
+R=[  0   0 0x00  4'b0000  4'd00] expect
+A=[ -1  -1 0x0f  4'b1111  4'd15]
+B=[ -1  -1 0x0f  4'b1111  4'd15]
+Q=[  1   1 0x01  4'b0001  4'd01] actual
+R=[  0   0 0x00  4'b0000  4'd00] actual
+PASS
+SUCCESS: ALL TESTS PASS
+True
+>>> 
