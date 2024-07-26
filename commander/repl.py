@@ -9,7 +9,7 @@
 #
 # How to use:
 #   Connect a TT04 board into USB.
-#   With Chrome brower navigate to https://commander.tinytapeout.com/
+#   With Chrome browser navigate to https://commander.tinytapeout.com/
 #   Connect to board with USB Serial
 #   CONFIG:
 #     Clock set to 0 Hz (disabled) [click SET]
@@ -19,7 +19,7 @@
 #
 #   It maybe necessary to split the file into 3 parts as I found the serial
 #   interface would block (seemingly deadlock on the MicroPython device)
-#   if there was too much data.
+#   if there was too much data, maybe 8KiB is the limit?
 #
 #   I have marked a suitable split location with ##### SPLIT MARKER #####
 #
@@ -27,14 +27,27 @@
 # Copyright (c) 2024 Darryl L. Miles
 # SPDX-License-Identifier: Apache-2.0
 #
+#
+# vvv Don't worry about this comment it out if it causes you a problem
+import sys
+if sys.implementation.name != "micropython":
+    from numbers import Number # does not exist in MicroPython
+    # Currently private surrogate of APIs to help with PC host based development
+    from tthostdevel import *
+# ^^^ Don't worry about this comment it out if it causes you a problem
+
 from machine import Pin
+##### SPLIT MARKER #####
 
-# Alternatively you can use a terminal/minicom/PuTTY on ttyAC)/COMx
-#  issue these two command on power up.  Then Ctrl-E and upload/paste 
-#  in this script, using Ctrl-D to complete.
-# machine.reset()
-stopClocking()
+# Alternatively you can use a terminal/minicom/PuTTY on ttyACM0/COMx
+#  and type in these two command on power up.  (Without comment hash '#' prefix)
+#machine.reset()  # command one
+stopClocking()  # command two
+# Then Ctrl-E and upload/paste in this script (minicom Ctrl-A then Y), finally
+#  using Ctrl-D to complete and bring back MicroPython REPL prompt.
 
+
+# =====vvv FIRMWARE HOTFIX vvv=====
 # HOTFIX some versions of firmware might need this
 # FIXUP missing pin definitions (they were missing in my f/w)
 # FORCE them as ttboard/demoboard.py:396 of __getattr__ raise AttributeError
@@ -46,6 +59,7 @@ tt.pin_out2 = machine.Pin(7, mode=Pin.IN, pull=Pin.PULL_DOWN)
 
 #if tt.pin_out3 is None:
 tt.pin_out3 = machine.Pin(8, mode=Pin.IN, pull=Pin.PULL_DOWN)
+# =====^^^ FIRMWARE HOTFIX ^^^=====
 
 
 # Setup some easy access variables
@@ -79,8 +93,9 @@ Q = [RES3, RES2, RES1, RES0]
 R = [RES7, RES6, RES5, RES4]
 
 WIDTH = 4
-PWIDTH = 8
 MASK = (1 << WIDTH) - 1
+PWIDTH = 8
+PMASK = (1 << PWIDTH) - 1
 
 verbose = 1
 
@@ -91,8 +106,9 @@ def debug(level, *kwargs) -> None:
 
 
 # create base2 number, MSB first
+# binval(123, 8) => "01111011"
 def binval(value: int, width: int = 1) -> str:
-    assert width >= 0
+    assert width >= 0, f"invalid width: {width}"
     s = ''
     for bitid in range(width):
         bitval = 1 << bitid
@@ -103,8 +119,11 @@ def binval(value: int, width: int = 1) -> str:
     return s
 
 
+# u2s(123, 8) => -5
+# u2s(6, 4) => 6
 def u2s(value: int, width: int) -> int: # unsigned to signed at width
-    assert width >= 0
+    assert type(value) is int, f"wrong type: {type(value)}"
+    assert width >= 0, f"invalid width: {width}"
     unsigned_max_plus_one = 1 << width
     unsigned_max = unsigned_max_plus_one - 1
     signed_max_plus_one = (1 << (width - 1))
@@ -116,26 +135,36 @@ def u2s(value: int, width: int) -> int: # unsigned to signed at width
     return value
 
 
+# s2u(-5, 8) => 123
+# s2u(6, 4) => 6
 def s2u(value: int, width: int) -> int: # signed to unsigned at width
-    assert width >= 0
+    assert type(value) is int, f"wrong type: {type(value)}"
+    assert width >= 0, f"invalid width: {width}"
     unsigned_max_plus_one = 1 << width
     unsigned_max = unsigned_max_plus_one - 1
     return value & unsigned_max
 
 
+# veribinval(123, 8) => "8'b011111011"
 def veribinval(value: int, width: int = 1) -> str:
     assert width >= 1
     s = binval(value, width)
     return f"{width}\'b{s}"
 
 
-def veridecval(value: int, width: int = 1) -> str:
+# veridecval(128, 8) => "8'd123"
+# veridecval(3, 8, 3) => "8'd003"
+def veridecval(value: int, width: int = 1, pad: int = 0) -> str:
     assert width >= 1
     value = s2u(value, width)
-    return f"{width}\'d{value}"
+    s_value = f"{value}"
+    if len(s_value) < pad:
+        padlen = pad - len(s_value)
+        s_value = ("0" * padlen) + s_value
+    return f"{width}\'d{s_value}"
 
 
-# None = -8 to +15.
+# None = -8 to +15 (accepts any input it can reliabliy move into range)
 def fix_range(value: int, signed: int = None) -> int:
     sv = u2s(value, WIDTH)
     uv = s2u(value, WIDTH)
@@ -148,11 +177,13 @@ def fix_range(value: int, signed: int = None) -> int:
     return uv
 
 
-def rdbus(pins: Sequence[Any]) -> int: # read a bus of Pin
+##### SPLIT MARKER #####
+# read bus of pins into integer (bus is MSB first)
+def rdbus(pins: Sequence[any]) -> int: # read a bus of Pin
     v = 0
     w = len(pins)
     for i, pin in enumerate(pins): # MSB first
-        bitid = w - i - 1
+        bitid = w - i - 1 # because we are MSB first
         v <<= 1
         vv = '0'
         # MuxedSelection on tt.out3 makes this not have consistent interface
@@ -163,62 +194,84 @@ def rdbus(pins: Sequence[Any]) -> int: # read a bus of Pin
     return v
 
 
-def wrbus(pins: Sequence[Any], value: int) -> None: # write a bus of Pin
+# write bus of pins from integer
+def wrbus(pins: Sequence[any], value: int) -> None: # write a bus of Pin
     nvalue = fix_range(value)
     if nvalue != value:
         print(f"WARNING: Input out of range {value} 0..15 or -7...8 using {nvalue}")
     w = len(pins)
     for i, pin in enumerate(pins): # pins is MSB first
-        bitid = w - i - 1
+        bitid = w - i - 1 # because we are MSB first
         bitval = 1 << bitid
         bitbf = True if (nvalue & bitval) != 0 else False
         pin(bitbf) # invoke as function to set value
         debug(2, f"wr({bitid}) = {bitbf} {pin}") # verbose
 
 
-def prbus(pins: Sequence[Any], width: int = None) -> None:
+# print bus of pins to console
+def prbus(pins: Sequence[any], width: int = None) -> None:
     width = len(pins) if width is None else width
     v = rdbus(pins)
-    sv = u2s(v, width)
-    print(f"{v} {sv:5d}   0x{v:x}   {binval(v, width)}b  {veribinval(v, width)}  {veridecval(v, width)}")
+    uv = v & ((1 << width) - 1) # custom mask
+    print(f"{v}  {u2s(v, width):5d}  0x{uv:x}   {veribinval(v, width)}  {veridecval(v, width)}")
 
 
-def div_status(signed: bool = False) -> None:
+##### SPLIT MARKER #####
+# interpret output as divide operation result and show
+def div_status(signed: bool = False) -> str:
     edivover = EDIVOVER.value()
     edivzero = EDIVZERO.value()
-    d_edivover = ' EDIVOVER' if edivover else ''
-    d_edivzero = ' EDIVZERO' if edivzero else ''
+    a_error = []
+    d_edivover = 'EDIVOVER' if edivover else ''
+    d_edivzero = 'EDIVZERO' if edivzero else ''
+    if edivover:
+        a_error.append(d_edivover)
+    if edivzero:
+        a_error.append(d_edivzero)
     qvalue = rdbus(Q)
     if signed:
         qvalue = u2s(qvalue, WIDTH)
-    d_qvalue = f"Q=[{qvalue:2d}  0x{qvalue:x}  {binval(qvalue, WIDTH)}  {veribinval(qvalue, WIDTH)}  {veridecval(qvalue, WIDTH)}]"
+    d_qvalue = f"Q=[{qvalue:3} {u2s(qvalue, WIDTH):3} 0x{s2u(qvalue, WIDTH):02x}  {veribinval(qvalue, WIDTH)}  {veridecval(qvalue, WIDTH, 2)}] actual"
     print(d_qvalue)
     rvalue = rdbus(R)
     if signed:
         rvalue = u2s(rvalue, WIDTH)
-    d_rvalue = f"R=[{rvalue:2d}  0x{rvalue:x}  {binval(rvalue, WIDTH)}  {veribinval(rvalue, WIDTH)}  {veridecval(rvalue, WIDTH)}]"
+    d_rvalue = f"R=[{rvalue:3} {u2s(rvalue, WIDTH):3} 0x{s2u(rvalue, WIDTH):02x}  {veribinval(rvalue, WIDTH)}  {veridecval(rvalue, WIDTH, 2)}] actual"
     print(d_rvalue)
-    str = f"E={d_edivover}{d_edivzero}"
-    print(str)
+    if len(a_error) > 0:
+        rv = ' '.join(a_error)
+        str = f"E={rv}"
+        print(str)
+    elif rvalue != 0:
+        rv = f"{qvalue}r{rvalue}"
+    else:
+        rv = f"{qvalue}"
+    return rv
 
 
-def mul_status(signed: bool = False) -> None:
+##### SPLIT MARKER #####
+# interpret output as multiply operation result and show
+def mul_status(signed: bool = False) -> str:
     # Error signal outputs ignored for multiple
     pvalue = rdbus(P)
     sv = u2s(pvalue, PWIDTH)
-    d_pvalue = f"P=[{pvalue:2d} {sv:5d}   0x{pvalue:x}   {binval(pvalue, PWIDTH)}  {veribinval(pvalue, PWIDTH)}  {veridecval(pvalue, PWIDTH)}]"
+    d_pvalue = f"P=[{pvalue:4} {u2s(pvalue, PWIDTH):4} 0x{s2u(pvalue, PWIDTH):02x} {veribinval(pvalue, PWIDTH)} {veridecval(pvalue, PWIDTH, 3)}] actual"
     print(d_pvalue)
+    if signed:
+        return f"{sv}"
+    return f"{pvalue}"
 
 
+# interpret output of last operation result and show
 def status() -> str:
     v_muldiv = MULDIV.value()
     v_opsigned = OPSIGNED.value()
     d_muldiv = 'Divide' if(v_muldiv) != 0 else 'Multiply'
     d_opsigned = 'Signed' if(v_opsigned) != 0 else 'Unsigned'
-    print(f"MULDIV={v_muldiv} [{d_muldiv}]    OPSIGNED={v_opsigned}  [{d_opsigned}]")
-    v_a = rdbus(A)
-    v_b = rdbus(B)
-    print(f"     A={v_a} [0x{v_a:x}]           B={v_b}  [0x{v_b:x}]")
+    print(f"MULDIV={v_muldiv} [{d_muldiv}]    OPSIGNED={v_opsigned} [{d_opsigned}]")
+    a = rdbus(A)
+    b = rdbus(B)
+    print(f"     A={a:4}  {u2s(a, WIDTH):4}  [0x{s2u(a, WIDTH):02x}]       B={b:4}  {u2s(b, WIDTH):4}  [0x{s2u(b, WIDTH):02x}]")
     if MULDIV.value(): # True == DIV
         return div_status(OPSIGNED.value() != 0)
     else:
@@ -245,36 +298,59 @@ def validate(a: Numeric, b: Numeric, signed: bool = False) -> None:
             raise Exception(f"B out-of-range ({b} 0..15)")
 
 
-def div_op(a: Number, b: Number, signed: bool = False) -> int:	# Generic DIV
+def div_compute_expect(a: Number, b: Number, signed: bool = False) -> tuple:
+    if b == 0:
+        qexpect = 'EDIVZERO'
+        rexpect = None
+    else:
+        qexpect = int(a / b)
+        rexpect = int(a % b)
+    return (qexpect, rexpect)
+
+
+def div_op(a: Number, b: Number, signed: bool = False, status: bool = False) -> any: # Generic DIV
     validate(a, b, signed)
     MULDIV.on()		# Divide mode
     OPSIGNED(signed)
     wrbus(A, a)
     wrbus(B, b)
+    qexpect, rexpect = div_compute_expect(a, b, signed)
     op = 'S' if signed else 'U'
-    if b == 0:
-        expect = 'EDIVZERO'
-        d_expect = f"{expect}"
+    if type(qexpect) is int:
+        expr_expect = f"{qexpect} r {rexpect}"
     else:
-        qexpect = int(a / b)
-        rexpect = int(a % b)
-        d_expect = f"Q=[{qexpect} 0x{int(qexpect):x} {veribinval(qexpect, WIDTH)}]"
-        d_expect += f" R=[{rexpect} 0x{int(rexpect):x} {veribinval(rexpect, WIDTH)}]"
-    print(f"DIV{op} A={a} B={b}  expect={d_expect}")
+        expr_expect = qexpect # str
+    print(f"DIV{op} SIGNED={signed:<5} A={a:<3} B={b:<3} expr={a} / {b} = {expr_expect}")
+    if type(qexpect) is int: # might be string EDIV0
+        print(f"Q=[{qexpect:3} {u2s(qexpect, WIDTH):3} 0x{s2u(qexpect, WIDTH):02x}  {veribinval(qexpect, WIDTH)}  {veridecval(qexpect, WIDTH, 2)}] expect")
+    if type(rexpect) is int: # might be None
+        print(f"R=[{rexpect:3} {u2s(rexpect, WIDTH):3} 0x{s2u(rexpect, WIDTH):02x}  {veribinval(rexpect, WIDTH)}  {veridecval(rexpect, WIDTH, 2)}] expect")
+    print(f"A=[{a:3} {u2s(a, WIDTH):3} 0x{s2u(a, WIDTH):02x}  {veribinval(a, WIDTH)}  {veridecval(a, WIDTH, 2)}]")
+    print(f"B=[{b:3} {u2s(b, WIDTH):3} 0x{s2u(b, WIDTH):02x}  {veribinval(b, WIDTH)}  {veridecval(b, WIDTH, 2)}]")
     wait()
-    div_status()
-    return qr(rdbus(Q), rdbus(R))
+    s = div_status()
+    if status:
+        return s
+    return qr(rdbus(Q), rdbus(R)) # 8bit
 
 
-def divs_op(a: Number, b: Number) -> None: # Signed DIV
-    return div_op(a, b, True)
+def divs_op(a: Number, b: Number) -> int: # Signed DIV
+    return div_op(a, b, signed=True)
 
 
-def divu_op(a: Number, b: Number) -> None: # Unsigned DIV
-    return div_op(a, b, False)
+def divu_op(a: Number, b: Number) -> int: # Unsigned DIV
+    return div_op(a, b, signed=False)
 
 
-def mul_op(a: Number, b: Number, signed: bool = False) -> int:	# Generic MUL
+def divs_op_status(a: Number, b: Number) -> str: # Signed DIV
+    return div_op(a, b, signed=True, status=True)
+
+
+def divu_op_status(a: Number, b: Number) -> str: # Unsigned DIV
+    return div_op(a, b, signed=False, status=True)
+
+
+def mul_op(a: Number, b: Number, signed: bool = False, status: bool = False) -> any:	# Generic MUL
     validate(a, b, signed)
     MULDIV.off()	# Multiply mode
     OPSIGNED(signed)
@@ -282,24 +358,37 @@ def mul_op(a: Number, b: Number, signed: bool = False) -> int:	# Generic MUL
     wrbus(B, b)
     op = 'S' if signed else 'U'
     expect = a * b
-    uexpect = expect & MASK
-    print(f"MUL{op} A={a} B={b}  expect=[{expect} 0x{uexpect:x} {veribinval(expect, WIDTH)}]")
+    print(f"MUL{op} SIGNED={signed:<5} A={a:<3} B={b:<3} expr={a} * {b} = {expect}")
+    print(f"P=[{expect:4} {u2s(expect, PWIDTH):4} 0x{s2u(expect, PWIDTH):02x} {veribinval(expect, PWIDTH)} {veridecval(expect, PWIDTH, 3)}] expect")
+    print(f"A=[{a:4} {u2s(a, WIDTH):4} 0x{s2u(a, WIDTH):02x}     {veribinval(a, WIDTH)} {veridecval(a, WIDTH, 3)}]")
+    print(f"B=[{b:4} {u2s(b, WIDTH):4} 0x{s2u(b, WIDTH):02x}     {veribinval(b, WIDTH)} {veridecval(b, WIDTH, 3)}]")
     wait()
-    mul_status()
+    s = mul_status()
     p = rdbus(P)
     if signed:
         p = u2s(p, PWIDTH) # interpret data into Python int type
+    if status:
+        return s
     return p
 
 
-def muls_op(a: Number, b: Number) -> None: # Signed MUL
-    return mul_op(a, b, True)
+def muls_op(a: Number, b: Number) -> int: # Signed MUL
+    return mul_op(a, b, signed=True)
 
 
-def mulu_op(a: Number, b: Number) -> None: # Unsigned MUL
-    return mul_op(a, b, False)
+def mulu_op(a: Number, b: Number) -> int: # Unsigned MUL
+    return mul_op(a, b, signed=False)
 
 
+def muls_op_status(a: Number, b: Number) -> str: # Signed MUL
+    return mul_op(a, b, signed=True, status=True)
+
+
+def mulu_op_status(a: Number, b: Number) -> str: # Unsigned MUL
+    return mul_op(a, b, signed=False, status=True)
+
+
+# Make a decision given actual result and expectation if this is correct
 def passfail(expect: int, actual: int, expect_edivzero: bool = False, expect_edivover: bool = False) -> bool:
     actual_edivzero = EDIVZERO.value()
     actual_edivover = EDIVOVER.value()
@@ -319,9 +408,10 @@ def passfail(expect: int, actual: int, expect_edivzero: bool = False, expect_edi
     return bf
 
 
+# Perform a single test and accumulate fail_count
 def test_one(fail_count: int, expect: int, func: Callable[[None],int], expect_edivzero: bool = False, expect_edivover: bool = False) -> int:
-    actual = func()
-    bf = passfail(expect, actual, expect_edivzero, expect_edivover)
+    actual = func() # run the operation
+    bf = passfail(expect, actual, expect_edivzero, expect_edivover) # decide pass or fail
     if not bf:
         fail_count += 1
     return fail_count
@@ -338,10 +428,14 @@ def test_mulu(fail_count: int) -> int:
     # MULU
     fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  0))
     fail_count = test_one(fail_count, 0,     lambda: mulu_op(1,  0))
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(7,  0))
+    fail_count = test_one(fail_count, 0,     lambda: mulu_op(8,  0))
     fail_count = test_one(fail_count, 0,     lambda: mulu_op(15, 0))
     #
     fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  1))
     fail_count = test_one(fail_count, 1,     lambda: mulu_op(1,  1))
+    fail_count = test_one(fail_count, 7,     lambda: mulu_op(7,  1))
+    fail_count = test_one(fail_count, 8,     lambda: mulu_op(8,  1))
     fail_count = test_one(fail_count, 15,    lambda: mulu_op(15, 1))
     #
     fail_count = test_one(fail_count, 0,     lambda: mulu_op(0,  2))
@@ -361,12 +455,17 @@ def test_mulu(fail_count: int) -> int:
 def test_muls(fail_count: int) -> int:
     # MULS
     fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  0))
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(1,  0))
     fail_count = test_one(fail_count, 0,     lambda: muls_op(7,  0))
     fail_count = test_one(fail_count, 0,     lambda: muls_op(-8, 0))
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(-7,  0))
+    fail_count = test_one(fail_count, 0,     lambda: muls_op(-1,  0))
     #
     fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  1))
     fail_count = test_one(fail_count, 7,     lambda: muls_op(7,  1))
     fail_count = test_one(fail_count, -8,    lambda: muls_op(-8, 1))
+    fail_count = test_one(fail_count, -7,    lambda: muls_op(-7, 1))
+    fail_count = test_one(fail_count, -1,    lambda: muls_op(-1, 1))
     #
     fail_count = test_one(fail_count, 0,     lambda: muls_op(0,  2))
     fail_count = test_one(fail_count, 14,    lambda: muls_op(7,  2))
@@ -484,7 +583,7 @@ def test_divs(fail_count: int) -> int:
     fail_count = test_one(fail_count, qr(   0,  0),  lambda: divs_op( 0, -1))
     fail_count = test_one(fail_count, qr(  -1,  0),  lambda: divs_op( 1, -1))
     fail_count = test_one(fail_count, qr(  -7,  0),  lambda: divs_op( 7, -1))
-    fail_count = test_one(fail_count, qr(  -8,  0),  lambda: divs_op(-8, -1))
+    fail_count = test_one(fail_count, qr(   8,  0),  lambda: divs_op(-8, -1))
     fail_count = test_one(fail_count, qr(   7,  0),  lambda: divs_op(-7, -1))
     fail_count = test_one(fail_count, qr(   1,  0),  lambda: divs_op(-1, -1))
     return fail_count
@@ -505,22 +604,23 @@ def test() -> bool:
     return False
 
 
+##### SPLIT MARKER #####
 def environment_check() -> bool:
-    ### FIXME can we perform an environment check, to prevent running against the wrong TT edition
-    ## Unclear if I and query the firmwares power-on ROM check or config.ini data.
-    if True:
-        print("WARN: This project is for TT04 but this environment has NOT")
-        print("WARN: been validated automatically Please manually check and")
-        print("WARN: confirm TT04 is connected")
-        print(" * Set Clock to 0")
-        print(" * Select Project 325")
-        print(" * Open REPL tab and load this script")
-    return True
+    ## perform an environment check, to prevent running against the wrong TT edition
+    ## unclear if I and query the firmware power-on ROM check or config.ini data.
+    is_correct_tt_edition = tt.chip_ROM.shuttle == 'tt04'
+    if is_correct_tt_edition:
+        print(f"READY: This project is for TT04 which matches tt.chip_ROM.shuttle={tt.chip_ROM.shuttle}")
+        return True
+    print("ERROR: The TT PCB that is attached has been unable to validated is the correct edition.")
+    print("ERROR: This project needs: tt04")
+    return False
 
 
 def project325_pin_setup():
     # This is delayed until after project selection because that assumes
-    #  PMODs have been disconnected.
+    #  PMODs (from using it for a previous project) have been disconnected
+    #  as this project does not use any PMODs.
     tt.pin_uio4.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # EDIVOVER
     tt.pin_uio5.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # EDIVZERO
     tt.pin_uio6.init(mode=Pin.OUT, pull=Pin.PULL_DOWN) # OPSIGNED
@@ -531,10 +631,10 @@ def project325_pin_setup():
     #tt.pin_in1.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A1
     #tt.pin_in2.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A2
     #tt.pin_in3.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A3
-    #tt.pin_in4.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A4
-    #tt.pin_in5.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A5
-    #tt.pin_in6.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A6
-    #tt.pin_in7.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # A7
+    #tt.pin_in4.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # B0
+    #tt.pin_in5.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # B1
+    #tt.pin_in6.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # B2
+    #tt.pin_in7.init(mode=Pin.OUT,  pull=Pin.PULL_DOWN) # B3
     #tt.pin_out0.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES0
     #tt.pin_out1.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES1
     #tt.pin_out2.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES2
@@ -545,26 +645,61 @@ def project325_pin_setup():
     #tt.pin_out7.init(mode=Pin.IN,  pull=Pin.PULL_DOWN) # RES7
 
 
-def project325_enable(force: bool = False):
+def project325_activate(force: bool = False):
     # check environment is TT04
     if not environment_check() and not force:
-        printf(f"WARNING: Overide this halt with: project325_enable(force=True)")
+        printf(f"WARNING: Overide this halt with: project325_activate(force=True)")
         return
-    # reset stuff (but not the REPL connection itself)
-    stopClocking() #set_clock_hz(0)  # stop clock
-    tt.nproject_rst(0)
-    tt.project_clk(0)
+    # =====vvv UNIVERSAL PROJECT RESET SEQUENCE vvv=====
+    # This sequence is expected to work for all projects.
+    # This project (tt04/325) does not make use of N_RST or CLK inputs.
+    # So this section is more for copy-and-paste general purpose use.
+    tt.clock_project_stop() # stopClocking() #set_clock_hz(0)  # stop clock
+    # tristate or set to input the BIDI ports (reset_and_clock_mux() actually
+    #  does this already) but it is good to see it expressed here as a visibility
+    #  explicit action in this sequence.
+    tt.pins.safe_bidir()
+    # once they are tristated return pin control back to RP2040
+    tt.mode = RPMode.ASIC_RP_CONTROL
+    #
+    # Setup all control lines to zero (assumes all zero inputs is a good default starting
+    #  state to leave reset condition)
+    tt.project_nrst(False)
+    tt.project_clk(False)
+    tt.inputs_byte = 0 # ui_in = 8'b0
+    tt.bidir_byte = 0  # uio_in = 8'b0
+    #
     tt.shuttle.reset_and_clock_mux(325) # select_design(325)
-    # enable project bidi pin directions
+    # perform project specific bidi pin direction setup (this is the custom bidi
+    #  setup when leaving reset) from this point BIDI direction management is allowed
+    #  to take place for this project.
     project325_pin_setup()
+    # this sleep represents a delay over 1000 times larger than needed to allow power
+    #  gating to occur over the entire project and decap to achieve supply rail stability
+    #  just after project selection.
     time.sleep_ms(1)
+    # we clock an extra time (first cycle is a throw away cycle we don't expect/need to work)
+    #  just in case the first clock is not a perfect clock cycle (not a good duty cycle, not
+    #  100% to +ve rail, all receivers are not fully powered, allows the clock to act as a
+    #  gate/release for internal charged states).
     tt.clock_project_once()
+    # this is considered the perfect synchronous reset clock cycle, this can be left in for
+    #  any project and is harmless to async reset or unclocked projects that don't need it.
     tt.clock_project_once()
-    tt.nproject_rst(1)
+    # Finally we can release reset
+    tt.project_nrst(True)
     # reset released
+    # =====^^^ UNIVERSAL PROJECT RESET SEQUENCE ^^^=====
+    #
+    # If this project is a clocked project we can start the clock here with the first
+    #  cycle the first out of reset.
+    # This (tt04/325) is not a clocked project, so we don't need to enable it.
+    #tt.clock_project_PWM(10_000_000)  #tt.set_clock_hz()
+    #
+    # Now the project takes over from this point on infrastructure is out the way.
     #
     # set default state (MULU 1*1=1)
-    print("project325_enable")
+    print("STATUS: Project 325 successfully activated")
     MULDIV.off()
     OPSIGNED.off()
     wrbus(A, 1)
@@ -576,9 +711,9 @@ def project325_help():
     print("Help Info: ")
     print("  mul_op(a: Number, b: Number, signed: bool) - Execute MUL op")
     print("  div_op(a: Number, b: Number, signed: bool) - Execute DIV op")
-    print("  status()             - Report Output Status")
-    print("  test()               - Run some tests")
-    print("  project325_enable()  - Active project")
+    print("  status()               - Report Output Status")
+    print("  test()                 - Run some tests")
+    print("  project325_activate()  - Active project")
 
 
 project325_help()
