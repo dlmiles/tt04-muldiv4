@@ -21,6 +21,8 @@ Take a look at https://commander.tinytapeout.com/ with Chrome web browser
 (due to needing WebUSB support).  Which is based on the project at
 https://github.com/TinyTapeout/tt-commander-app for quick access.
 
+See also [pyttloader Utility](pyttloader/)
+
 ---
 
 ## Using minicom

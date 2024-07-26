@@ -9,3 +9,4 @@ src/results.xml
 src/user_config.tcl
 
 *~
+venv/
